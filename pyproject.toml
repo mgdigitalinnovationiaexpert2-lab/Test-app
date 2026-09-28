@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maghsoud-ai-infrastructure"
+version = "0.1.0"
+requires-python = ">=3.12,<3.15"
+dependencies = ["fastapi==0.141.1", "starlette==1.3.1", "uvicorn==0.52.4", "httpx==0.28.1", "pydantic==2.13.5", "PyYAML==6.0.3", "jsonschema==4.26.0"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.1", "ruff==0.12.9", "mypy==1.17.1", "types-PyYAML==6.0.12.20250809", "types-jsonschema==4.26.0.20260518", "build==1.3.0", "pip-tools==7.5.0"]
+
+[tool.setuptools.packages.find]
+include = ["mg_ai*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["mg_ai"]

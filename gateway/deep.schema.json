@@ -1,0 +1,115 @@
+{
+  "request": {
+    "additionalProperties": false,
+    "properties": {
+      "execution_id": {
+        "format": "uuid",
+        "title": "Execution Id",
+        "type": "string"
+      },
+      "task_id": {
+        "format": "uuid",
+        "title": "Task Id",
+        "type": "string"
+      },
+      "conversation_id": {
+        "format": "uuid",
+        "title": "Conversation Id",
+        "type": "string"
+      },
+      "attempt": {
+        "maximum": 1000000,
+        "minimum": 1,
+        "title": "Attempt",
+        "type": "integer"
+      },
+      "input": {
+        "maxLength": 32000,
+        "minLength": 1,
+        "title": "Input",
+        "type": "string"
+      },
+      "privacy_class": {
+        "const": "PUBLIC",
+        "title": "Privacy Class",
+        "type": "string"
+      }
+    },
+    "required": [
+      "execution_id",
+      "task_id",
+      "conversation_id",
+      "attempt",
+      "input",
+      "privacy_class"
+    ],
+    "title": "DeepRequest",
+    "type": "object"
+  },
+  "response": {
+    "additionalProperties": false,
+    "properties": {
+      "execution_id": {
+        "format": "uuid",
+        "title": "Execution Id",
+        "type": "string"
+      },
+      "task_id": {
+        "format": "uuid",
+        "title": "Task Id",
+        "type": "string"
+      },
+      "conversation_id": {
+        "format": "uuid",
+        "title": "Conversation Id",
+        "type": "string"
+      },
+      "request_id": {
+        "title": "Request Id",
+        "type": "string"
+      },
+      "attempt": {
+        "title": "Attempt",
+        "type": "integer"
+      },
+      "status": {
+        "const": "COMPLETED",
+        "default": "COMPLETED",
+        "title": "Status",
+        "type": "string"
+      },
+      "answer": {
+        "title": "Answer",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "completed_at": {
+        "format": "date-time",
+        "title": "Completed At",
+        "type": "string"
+      },
+      "continuity": {
+        "const": "TASK_SCOPED",
+        "default": "TASK_SCOPED",
+        "title": "Continuity",
+        "type": "string"
+      }
+    },
+    "required": [
+      "execution_id",
+      "task_id",
+      "conversation_id",
+      "request_id",
+      "attempt",
+      "answer",
+      "created_at",
+      "completed_at"
+    ],
+    "title": "DeepResponse",
+    "type": "object"
+  }
+}

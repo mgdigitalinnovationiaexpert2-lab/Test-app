@@ -1,0 +1,7 @@
+{
+  "dataset": "evals/live-cases.json",
+  "sha256": "6621db69621f18286ff530e1b2668764ecc1fdabb8a1ef42d12536aab51a454e",
+  "data_class": "PUBLIC_SYNTHETIC",
+  "approved_by": "owner-approved fixed synthetic certification baseline",
+  "approval_reason": "Existing five synthetic fixtures used in the authorized 2026-09-10 certification; no organizational records. Changes require explicit dataset review and a new approved hash."
+}

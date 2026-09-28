@@ -1,0 +1,23 @@
+task: AI-REQ-042
+repository: .
+goal: Improve the bounded task UI without changing business execution.
+acceptance_criteria:
+  - Requested UI change is present and targeted checks pass.
+  - Only allowed paths changed; no commit or push.
+allowed_paths:
+  - src/components/**
+  - src/modules/ai-requests/**
+  - docs/**
+forbidden_paths:
+  - prisma/**
+  - .env*
+  - deploy/**
+  - production/**
+allow_schema_change: false
+allow_infrastructure_change: false
+allow_commit: false
+allow_push: false
+risk_level: LOW
+relevant_tests: []
+notes:
+  - Owner reviews the diff before any commit.

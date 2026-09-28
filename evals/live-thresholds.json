@@ -1,0 +1,5 @@
+{
+  "life-study": {"faithfulness":1.0,"coverage":1.0,"persian_script":1.0,"structured_output":1.0,"long_context":1.0,"reliability":1.0},
+  "dev-code": {"correctness":1.0,"scope_adherence":1.0,"code_quality":1.0,"reasoning":1.0,"tool_calling":1.0,"structured_output":1.0,"reliability":1.0},
+  "portal-workhorse": {"faithfulness":1.0,"instruction_following":1.0,"persian_script":1.0,"structured_output":1.0,"reasoning":1.0,"reliability":1.0}
+}
