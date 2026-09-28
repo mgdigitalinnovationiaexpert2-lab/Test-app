@@ -89,6 +89,9 @@
     ],
     "default_privacy": "INTERNAL",
     "log_metadata": true,
-    "log_content": false
+    "log_content": false,
+    "additional_token_envs": [
+      "MG_DEV_TOKEN_EXPERT2"
+    ]
   }
 }

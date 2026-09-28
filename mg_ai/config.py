@@ -119,6 +119,7 @@ class Route(StrictModel):
 
 class Client(StrictModel):
     token_env: str
+    additional_token_envs: set[str] = Field(default_factory=set)
     routes: set[str]
     paid_allowed: Literal[False] = False
     monthly_budget_usd: Literal[0] = 0

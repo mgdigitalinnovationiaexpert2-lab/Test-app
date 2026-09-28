@@ -102,3 +102,5 @@ compatibility and free coding inference are BLOCKED, not validated by curl or mo
 
 The reusable YAML contract and completed bounded documentation exercises are described in
 [DEVELOPER_ACCEPTANCE.md](DEVELOPER_ACCEPTANCE.md).
+
+Give each developer workstation its own approved MG developer credential; never copy another developer's token. Additional credentials still share the logical developer policy and quota namespace.
