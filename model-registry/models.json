@@ -1,0 +1,265 @@
+[
+  {
+    "id": "openrouter-free-discovery",
+    "provider": "openrouter",
+    "model": "openrouter/free",
+    "context_limit": 4096,
+    "credential_env": "OPENROUTER_API_KEY",
+    "random_router": true
+  },
+  {
+    "id": "nvidia-reviewed-candidate",
+    "provider": "nvidia",
+    "model": "REPLACE_WITH_REVIEWED_MODEL",
+    "context_limit": 4096,
+    "credential_env": "NVIDIA_API_KEY",
+    "api_base": "https://integrate.api.nvidia.com/v1",
+    "promotional": true
+  },
+  {
+    "id": "direct-compatible-candidate",
+    "provider": "openai-compatible",
+    "model": "REPLACE_WITH_REVIEWED_MODEL",
+    "context_limit": 4096,
+    "credential_env": "DIRECT_API_KEY",
+    "api_base": "https://example.invalid/v1"
+  },
+  {
+    "id": "direct-native-candidate",
+    "provider": "direct",
+    "model": "anthropic/REPLACE_WITH_REVIEWED_MODEL",
+    "context_limit": 4096,
+    "credential_env": "ANTHROPIC_API_KEY",
+    "cost_class": "PAID",
+    "cost_tier": "unreviewed"
+  },
+  {
+    "id": "omniroute-experimental",
+    "provider": "omniroute",
+    "model": "RESERVED",
+    "context_limit": 4096,
+    "credential_env": "DIRECT_API_KEY"
+  },
+  {
+    "id": "proposal-cohere-north-mini-code",
+    "provider": "openrouter",
+    "model": "cohere/north-mini-code:free",
+    "context_limit": 256000,
+    "credential_env": "OPENROUTER_API_KEY",
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED",
+    "capabilities": [
+      "TEXT"
+    ],
+    "coding_suitability": "unreviewed",
+    "reasoning_suitability": "unreviewed",
+    "persian_suitability": "unreviewed"
+  },
+  {
+    "id": "proposal-minimax-minimax-m3",
+    "provider": "openrouter",
+    "model": "minimax/minimax-m3:free",
+    "context_limit": 1048576,
+    "credential_env": "OPENROUTER_API_KEY",
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED",
+    "capabilities": [
+      "TEXT"
+    ],
+    "coding_suitability": "unreviewed",
+    "reasoning_suitability": "unreviewed",
+    "persian_suitability": "unreviewed"
+  },
+  {
+    "id": "proposal-nvidia-nemotron-3-nano-omni-30b-a3b-reasoning",
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "context_limit": 256000,
+    "credential_env": "OPENROUTER_API_KEY",
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED",
+    "capabilities": [
+      "TEXT"
+    ],
+    "coding_suitability": "unreviewed",
+    "reasoning_suitability": "unreviewed",
+    "persian_suitability": "unreviewed"
+  },
+  {
+    "id": "proposal-google-gemma-4-31b-it",
+    "provider": "openrouter",
+    "model": "google/gemma-4-31b-it:free",
+    "context_limit": 262144,
+    "credential_env": "OPENROUTER_API_KEY",
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED",
+    "capabilities": [
+      "TEXT"
+    ],
+    "coding_suitability": "unreviewed",
+    "reasoning_suitability": "unreviewed",
+    "persian_suitability": "unreviewed"
+  },
+  {
+    "id": "proposal-nvidia-ultra",
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "context_limit": 1000000,
+    "credential_env": "OPENROUTER_API_KEY",
+    "capabilities": [],
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED"
+  },
+  {
+    "id": "proposal-gemma-26b",
+    "provider": "openrouter",
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "context_limit": 262144,
+    "credential_env": "OPENROUTER_API_KEY",
+    "capabilities": [],
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED"
+  },
+  {
+    "id": "proposal-nex-pro",
+    "provider": "openrouter",
+    "model": "nex-agi/nex-n2.5-pro:free",
+    "context_limit": 262144,
+    "credential_env": "OPENROUTER_API_KEY",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN",
+      "STRUCTURED_OUTPUT",
+      "LONG_CONTEXT",
+      "CODING",
+      "TOOL_CALLING",
+      "REASONING"
+    ],
+    "enabled": true,
+    "approved": true,
+    "health": "HEALTHY",
+    "quality_tier": "WORKHORSE",
+    "privacy_classes": [
+      "PUBLIC"
+    ],
+    "data_policy_reviewed": true,
+    "data_policy_url": "https://openrouter.ai/docs/guides/privacy/data-collection",
+    "free_verified_until": "2026-09-13T12:56:01+04:30",
+    "free_evidence": "reports/discovery.json refreshed 2026-09-12T08:26:01Z: official OpenRouter zero-price catalog; .runtime/benchmark/mg-20260912-nex-life-final-01.json: two PUBLIC synthetic life-study probes accepted with no fallback and all thresholds passed",
+    "benchmark_scores": {
+      "LIFE_OS_STUDY": 1.0,
+      "IT_CODING": 1.0,
+      "GENERAL": 1.0
+    },
+    "coding_suitability": "Limited synthetic dev-code probes passed; INTERNAL use not approved",
+    "reasoning_suitability": "Fixed-fixture reasoning checks only",
+    "persian_suitability": "Synthetic source-faithfulness and Persian-script probes passed; PUBLIC educational pilot only",
+    "role": "champion"
+  },
+  {
+    "id": "groq-gpt-oss-120b",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "enabled": true,
+    "approved": true,
+    "cost_class": "FREE",
+    "cost_tier": "groq-free-project",
+    "quality_tier": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN",
+      "STRUCTURED_OUTPUT",
+      "LONG_CONTEXT",
+      "CODING",
+      "TOOL_CALLING",
+      "REASONING"
+    ],
+    "context_limit": 131072,
+    "max_output_tokens": 65536,
+    "credential_env": "GROQ_API_KEY",
+    "privacy_classes": [
+      "PUBLIC",
+      "INTERNAL"
+    ],
+    "data_policy_url": "https://console.groq.com/docs/your-data",
+    "data_policy_reviewed": true,
+    "retention_known": true,
+    "training_use_known": true,
+    "confidential_allowed": false,
+    "free_verified_until": "2026-10-15T10:18:57.9637718+00:00",
+    "free_evidence": "Owner confirmed Groq FREE Current Plan and Global ZDR Enabled on 2026-09-15; authenticated Groq discovery on 2026-09-15 reported model active; direct authenticated inference succeeded on 2026-09-15.",
+    "health": "HEALTHY",
+    "benchmark_scores": {
+      "GENERAL": 1.0,
+      "IT_CODING": 1.0
+    },
+    "coding_suitability": "Two bounded synthetic code probes passed, including exact tool-call schema",
+    "reasoning_suitability": "Synthetic code and Portal reasoning checks passed",
+    "persian_suitability": "Synthetic Persian Portal faithfulness and script checks passed",
+    "role": "challenger"
+  },
+  {
+    "id": "groq-qwen3-8-27b",
+    "provider": "groq",
+    "model": "qwen/qwen3.8-27b",
+    "enabled": true,
+    "approved": true,
+    "cost_class": "FREE",
+    "cost_tier": "groq-free-project",
+    "quality_tier": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN",
+      "STRUCTURED_OUTPUT",
+      "LONG_CONTEXT",
+      "CODING",
+      "TOOL_CALLING",
+      "REASONING"
+    ],
+    "context_limit": 131042,
+    "max_output_tokens": 16384,
+    "credential_env": "GROQ_API_KEY",
+    "privacy_classes": [
+      "PUBLIC",
+      "INTERNAL"
+    ],
+    "data_policy_url": "https://console.groq.com/docs/your-data",
+    "data_policy_reviewed": true,
+    "retention_known": true,
+    "training_use_known": true,
+    "confidential_allowed": false,
+    "free_verified_until": "2026-10-15T10:18:57.9637718+00:00",
+    "free_evidence": "Owner confirmed Groq FREE Current Plan and Global ZDR Enabled on 2026-09-15; authenticated Groq discovery on 2026-09-15 reported model active; direct authenticated inference succeeded on 2026-09-15.",
+    "health": "HEALTHY",
+    "benchmark_scores": {
+      "GENERAL": 1.0,
+      "IT_CODING": 1.0
+    },
+    "coding_suitability": "Two bounded synthetic code probes passed, including exact tool-call schema",
+    "reasoning_suitability": "Synthetic code and Portal reasoning checks passed",
+    "persian_suitability": "Synthetic Persian Portal faithfulness and script checks passed",
+    "role": "champion"
+  },
+  {
+    "id": "proposal-nex-mini",
+    "provider": "openrouter",
+    "model": "nex-agi/nex-n2.5-mini:free",
+    "context_limit": 262144,
+    "credential_env": "OPENROUTER_API_KEY",
+    "capabilities": [
+      "TEXT"
+    ],
+    "enabled": false,
+    "approved": false,
+    "health": "DISABLED",
+    "coding_suitability": "unreviewed",
+    "reasoning_suitability": "unreviewed",
+    "persian_suitability": "unreviewed"
+  }
+]

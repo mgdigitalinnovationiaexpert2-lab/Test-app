@@ -1,0 +1,66 @@
+name: maghsoud-ai-infrastructure
+services:
+  gateway:
+    image: maghsoud-ai-infrastructure-gateway:0.1.0
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    env_file: .env
+    environment:
+      MG_PROXY_URL: http://proxy:4000
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - mg-state:/state
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      proxy:
+        condition: service_healthy
+    networks: [private]
+  proxy:
+    image: ghcr.io/berriai/litellm:v1.99.1@sha256:a53a7d3ffebede1925bd3ee8a21e4a7b9b63e2e68ec883af136edcccb6eeb82c
+    env_file: .env
+    environment:
+      LITELLM_LOG: CRITICAL
+      LITELLM_TELEMETRY: "False"
+      LITELLM_DISABLE_USAGE_COUNTS: "1"
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    volumes:
+      - ./.runtime/litellm.yaml:/app/config.yaml:ro
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 1536m
+    cpus: 2.0
+    pids_limit: 256
+    logging:
+      driver: none
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    networks: [private]
+volumes:
+  mg-state:
+networks:
+  private:
+    driver: bridge
