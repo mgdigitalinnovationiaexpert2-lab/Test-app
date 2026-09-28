@@ -36,3 +36,5 @@ IDE approvals and secret checks. No automatic Codex review is configured.
 Before production: review model terms/privacy, image signatures/vulnerabilities, private
 ingress, restore, load limits and client behavior. No penetration test, production certification,
 or complete supply-chain audit is claimed.
+
+Developer credentials may include explicitly allowlisted additional token environment variables. Each credential can be rotated or revoked independently while mapping to the same developer policy; quotas and audit identity remain scoped to the logical developer client.
