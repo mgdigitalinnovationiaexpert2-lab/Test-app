@@ -1,0 +1,103 @@
+{
+  "portal-normal": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN"
+    ],
+    "task": "GENERAL",
+    "champion": "groq-qwen3-8-27b"
+  },
+  "life-study": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN"
+    ],
+    "task": "LIFE_OS_STUDY",
+    "champion": "proposal-nex-pro"
+  },
+  "life-document": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "DOCUMENT_ANALYSIS",
+      "PERSIAN"
+    ],
+    "task": "DOCUMENT_ANALYSIS"
+  },
+  "dev-light": {
+    "champion": "groq-qwen3-8-27b",
+    "allow_fallbacks": false,
+    "intent": "LIGHT",
+    "capabilities": [
+      "TEXT"
+    ],
+    "task": "GENERAL"
+  },
+  "dev-code": {
+    "backend": "CODEX",
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "CODING",
+      "TOOL_CALLING"
+    ],
+    "task": "IT_CODING"
+  },
+  "dev-reasoning": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "REASONING"
+    ],
+    "task": "IT_CODING"
+  },
+  "dev-vision": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "VISION",
+      "CODING"
+    ],
+    "task": "IT_CODING"
+  },
+  "dev-strong": {
+    "intent": "FRONTIER",
+    "capabilities": [
+      "CODING",
+      "REASONING",
+      "TOOL_CALLING"
+    ],
+    "task": "IT_CODING",
+    "min_quality": 0.8
+  },
+  "portal-light": {
+    "intent": "LIGHT",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN"
+    ],
+    "task": "GENERAL"
+  },
+  "portal-workhorse": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN"
+    ],
+    "task": "GENERAL"
+  },
+  "study-generation": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "TEXT",
+      "PERSIAN"
+    ],
+    "task": "LIFE_OS_STUDY"
+  },
+  "document-analysis": {
+    "intent": "WORKHORSE",
+    "capabilities": [
+      "DOCUMENT_ANALYSIS",
+      "PERSIAN"
+    ],
+    "task": "DOCUMENT_ANALYSIS"
+  }
+}

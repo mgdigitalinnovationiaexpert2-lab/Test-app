@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.sqlite*
+profile/
+state/
+.runtime/
+.test-runtime/
+runtime/
+owner-ready
+worker.lock

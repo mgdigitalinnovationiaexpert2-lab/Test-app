@@ -1,0 +1,9 @@
+# Base compose stays loopback-only. VPN TLS reverse proxy is provisioned separately.
+# docker compose -f compose.yaml -f deploy/server3.compose.yaml up -d
+services:
+  gateway:
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"

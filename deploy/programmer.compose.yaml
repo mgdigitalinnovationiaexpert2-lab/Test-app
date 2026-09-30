@@ -1,0 +1,17 @@
+# Optional programmer backend; only Gateway joins the existing private OmniRoute network.
+services:
+  gateway:
+    image: maghsoud-ai-infrastructure-gateway:programmer-v1
+    environment:
+      MG_PROGRAMMER_ENABLED: "true"
+      MG_PROGRAMMER_OMNI_URL: http://omniroute:20129
+      MG_PROGRAMMER_TOKEN_FILE: /run/secrets/programmer_omni_api
+    secrets: [programmer_omni_api]
+    networks: [private, programmer_upstream]
+networks:
+  programmer_upstream:
+    external: true
+    name: maghsoud-ai-infrastructure_deep_boundary
+secrets:
+  programmer_omni_api:
+    file: ./.runtime/deep/omni-api-token
