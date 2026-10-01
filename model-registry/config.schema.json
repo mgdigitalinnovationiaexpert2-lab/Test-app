@@ -282,6 +282,14 @@
           "title": "Token Env",
           "type": "string"
         },
+        "additional_token_envs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Additional Token Envs",
+          "type": "array",
+          "uniqueItems": true
+        },
         "routes": {
           "items": {
             "type": "string"

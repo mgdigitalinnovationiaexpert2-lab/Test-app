@@ -1,26 +1,5 @@
 # Current state
 
-## Frozen AI infrastructure — 2026-09-16
-
-The Windows repository at `C:\Projects\MaghsoudGroup\MG_Ai_Infrastructure` is the source/master
-working tree. Ubuntu at `/srv/MaghsoudGroup/MG_Ai_Infrastructure` is the current AI runtime.
-Deep Codex is certified for PUBLIC text-only execution and two-turn continuity, and is now idle
-(`enabled=false`, `session_ready=false`). Programmer `dev-code` is fully certified through
-OpenCode → MG Gateway → private OmniRoute → Codex, including authentication, tool calls,
-tool-result follow-up, buffered SSE and multi-turn behavior. OpenCode `dev-light` is explicitly
-visible as the Groq Qwen FREE/light model; it never selects Codex, OmniRoute or an automatic
-GPT-OSS fallback. Existing FREE and Portal routes remain on MG Gateway/LiteLLM.
-
-Do not repeat completed certification tests: Deep two-turn certification; Gateway and FREE/Portal
-regression checks; OpenCode authentication; `dev-code` routing; small Codex request; tool-call
-generation and tool-result follow-up; buffered SSE; multi-turn behavior; deployment, build, sync
-and network validation. No destructive Git/Docker operation was used, and no Server 3 deployment
-has occurred.
-
-Next phases: (1) securely remove the owner browser ChatGPT session from the Windows Server;
-(2) prototype Deep Chat as a separate Regular ChatGPT backend; (3) define the Server 3 production
-deployment and backup/restore workflow. Deep Chat remains planned and separate from Deep Codex.
-
 ## MG-owned DEEP continuity — 2026-09-12 (latest)
 
 MG now owns canonical task continuity. Its private SQLite journal persists an ordered PUBLIC-only

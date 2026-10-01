@@ -56,5 +56,3 @@ Champion/Challenger review, but cannot perform promotion.
 No database server, Redis, vector store, broker, management UI, training infrastructure,
 GPU dependency, production action agent or gateway chain is introduced. Configuration,
 tests and operator procedures are the control plane.
-
-Programmer routing has two explicit OpenCode models under `mg-ai`: certified `dev-code` uses+MG Gateway and private OmniRoute Codex; `dev-light` uses only the qualified Groq Qwen FREE/light+route through LiteLLM. Neither route exposes owner credentials, and `dev-light` has no Codex,+OmniRoute, or automatic GPT-OSS fallback.

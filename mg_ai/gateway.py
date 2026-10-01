@@ -80,18 +80,24 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                programmer: ProgrammerAdapter | None = None) -> FastAPI:
     config = config or load_config(Path(os.getenv("MG_CONFIG_ROOT", ".")))
     state = state or State(os.getenv("MG_STATE_PATH", ".runtime/state.sqlite"))
-    token_hashes: dict[str, bytes] = {}
+    token_hashes: list[tuple[str, bytes]] = []
+    seen_hashes: set[bytes] = set()
     for client, policy in config.clients.items():
-        token = os.getenv(policy.token_env, "")
-        if len(token) < 32:
-            raise ValueError(f"Configure a strong token for {client}")
-        digest = hashlib.sha256(token.encode()).digest()
-        if digest in token_hashes.values():
-            raise ValueError("client tokens must be distinct")
-        token_hashes[client] = digest
+        env_names = [policy.token_env, *sorted(policy.additional_token_envs)]
+        for index, env_name in enumerate(env_names):
+            token = os.getenv(env_name, "")
+            if index > 0 and not token:
+                continue
+            if len(token) < 32:
+                raise ValueError(f"Configure a strong token for {client}")
+            digest = hashlib.sha256(token.encode()).digest()
+            if digest in seen_hashes:
+                raise ValueError("client tokens must be distinct")
+            seen_hashes.add(digest)
+            token_hashes.append((client, digest))
     master = os.getenv("LITELLM_MASTER_KEY", "")
     if adapter is None and (len(master) < 32 or hashlib.sha256(master.encode()).digest()
-                            in token_hashes.values()):
+                            in seen_hashes):
         raise ValueError("configure a distinct strong LiteLLM master key")
     adapter = adapter or LiteLLMAdapter(os.getenv("MG_PROXY_URL", "http://127.0.0.1:4000"), master)
     if programmer is None and os.getenv("MG_PROGRAMMER_ENABLED", "false").lower() == "true":
@@ -119,7 +125,7 @@ def create_app(config: Configuration | None = None, state: State | None = None,
             raise MGError("UNAUTHENTICATED", 401)
         digest = hashlib.sha256(auth[7:].encode()).digest()
         found = None
-        for name, stored in token_hashes.items():
+        for name, stored in token_hashes:
             if hmac.compare_digest(digest, stored):
                 found = name
         if found is None:

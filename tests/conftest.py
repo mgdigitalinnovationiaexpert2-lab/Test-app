@@ -14,6 +14,8 @@ from mg_ai.state import State
 @pytest.fixture
 def config(monkeypatch):
     config = load_config()
+    # Gateway contract tests exercise the FREE adapter regardless of the
+    # production backend selected for each logical route.
     for route in config.routes.values():
         route.backend = "FREE"
         route.allow_fallbacks = True

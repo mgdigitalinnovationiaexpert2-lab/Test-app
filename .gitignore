@@ -13,3 +13,10 @@ dist/
 .runtime/
 reports/
 *.sqlite*
+
+# Local backup / snapshot artifacts
+*.bak*
+*.backup*
+*.old
+*.orig
+*.before-*

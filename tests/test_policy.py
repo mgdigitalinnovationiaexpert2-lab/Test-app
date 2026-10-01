@@ -29,7 +29,7 @@ def test_duplicate_registry_and_paid_policy(config):
 
 @pytest.mark.parametrize("updates", [{"capabilities": {"TEXT"}}, {"context_limit": 10},
                                      {"privacy_classes": {"PUBLIC"}}, {"cost_class": "PAID"},
-                                     {"benchmark_scores": {}}, {"approved": False},
+                                     {"benchmark_scores": {}}, {"role": "challenger"},
                                      {"quota_remaining": 0}, {"random_router": True},
                                      {"health": "DISABLED"}, {"quality_tier": "LIGHT"}])
 def test_eligibility(config, tmp_path, updates):
@@ -135,3 +135,26 @@ def test_atomic_monthly_admission(tmp_path):
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         assert sum(pool.map(admit, range(8))) == 1
+
+
+def test_additional_developer_token_authenticates(config, harness, monkeypatch):
+    alias_env = next(iter(config.clients["developer"].additional_token_envs))
+    alias_token = "test-expert2-" + "x" * 40
+    monkeypatch.setenv(alias_env, alias_token)
+    client, calls, _ = harness()
+    response = client.get("/v1/models",
+                          headers={"Authorization": "Bearer " + alias_token})
+    assert response.status_code == 200
+    assert "dev-code" in {item["id"] for item in response.json()["data"]}
+    assert not calls
+
+
+def test_duplicate_additional_developer_token_rejected(config, tmp_path, monkeypatch):
+    alias_env = next(iter(config.clients["developer"].additional_token_envs))
+    duplicate = "duplicate-" + "x" * 40
+    monkeypatch.setenv("MG_DEV_TOKEN", duplicate)
+    monkeypatch.setenv(alias_env, duplicate)
+    state = State(str(tmp_path / "duplicate-additional.sqlite"))
+    with pytest.raises(ValueError, match="distinct"):
+        create_app(config, state)
+    state.db.close()
