@@ -49,6 +49,24 @@ def test_success_metadata_and_sanitization(harness, caplog, success):
     assert record["usage"]["total_tokens"] == 11
 
 
+def test_execution_reconciliation_returns_not_found_processing_and_completed(harness, success):
+    client, calls, state = harness(lambda _: httpx.Response(200, json=success))
+    assert client.post('/internal/executions/reconcile', headers=headers(),
+                       json={'idempotency_key': 'missing'}).json() == {'status': 'NOT_FOUND'}
+    response = client.post('/v1/chat/completions', headers=headers(key='completed-key'), json=payload())
+    assert response.status_code == 200 and len(calls) == 1
+    recovered = client.post('/internal/executions/reconcile', headers=headers(),
+                            json={'idempotency_key': 'completed-key'})
+    assert recovered.status_code == 200
+    assert recovered.json()['status'] == 'COMPLETED'
+    assert recovered.json()['result']['choices'][0]['message']['content'] == success['choices'][0]['message']['content']
+    digest = state.admit('developer', 60, None, 'processing-key', b'body', 'request-processing')
+    state.execution('developer', digest, 'DISPATCHED')
+    processing = client.post('/internal/executions/reconcile', headers=headers(),
+                             json={'idempotency_key': 'processing-key'}).json()
+    assert processing['status'] == 'PROCESSING'
+
+
 @pytest.mark.parametrize("field,value", [("api_base", "http://attacker"),
                                          ("api_key", "injected"), ("fallbacks", ["paid"]),
                                          ("client", "portal"), ("num_retries", 4)])

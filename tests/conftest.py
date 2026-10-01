@@ -14,6 +14,11 @@ from mg_ai.state import State
 @pytest.fixture
 def config(monkeypatch):
     config = load_config()
+    # Gateway contract tests exercise the FREE adapter regardless of the
+    # production backend selected for each logical route.
+    for route in config.routes.values():
+        route.backend = "FREE"
+        route.allow_fallbacks = True
     for name, policy in config.clients.items():
         monkeypatch.setenv(policy.token_env, "test-" + name + "x" * 40)
     monkeypatch.setenv("LITELLM_MASTER_KEY", "test-master-" + "m" * 40)

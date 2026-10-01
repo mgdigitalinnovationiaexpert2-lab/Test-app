@@ -103,4 +103,10 @@ compatibility and free coding inference are BLOCKED, not validated by curl or mo
 The reusable YAML contract and completed bounded documentation exercises are described in
 [DEVELOPER_ACCEPTANCE.md](DEVELOPER_ACCEPTANCE.md).
 
-Give each developer workstation its own approved MG developer credential; never copy another developer's token. Additional credentials still share the logical developer policy and quota namespace.
+## Durable execution reconciliation
+
+Portal sends a stable `Idempotency-Key` on Normal requests. The authenticated
+`POST /internal/executions/reconcile` endpoint accepts `{ "idempotency_key": "..." }` and is
+scoped to the authenticated MG client. It returns `NOT_FOUND`, `PROCESSING`, `COMPLETED` with
+the original sanitized response, `FAILED` with a safe code, or `RECONCILIATION_REQUIRED`.
+Clients may redispatch only after `NOT_FOUND`; `COMPLETED` must be persisted exactly once.

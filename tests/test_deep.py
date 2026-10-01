@@ -144,7 +144,7 @@ def test_duplicate_and_conflicting_execution_id_never_redispatch(deep):
     assert len(calls) == 2
 
 
-@pytest.mark.parametrize('extra', [{'model': 'other'}, {'tools': []}, {'privacy_class': 'INTERNAL'},
+@pytest.mark.parametrize('extra', [{'model': 'other'}, {'tools': []},
                                   {'continuity_token': 'resp_old'}])
 def test_invalid_or_continuation_never_dispatches(deep, extra):
     client, _, calls = deep()
@@ -152,6 +152,45 @@ def test_invalid_or_continuation_never_dispatches(deep, extra):
     body.update(extra)
     assert client.post('/internal/deep/execute', json=body).status_code in {400, 409}
     assert not calls
+
+
+def test_private_png_attachment_is_staged_verified_and_removed(deep, monkeypatch, tmp_path):
+    monkeypatch.setenv('MG_DEEP_ATTACHMENT_ROOT', str(tmp_path / 'attachments'))
+    client, _, calls = deep()
+    body = request_body(privacy_class='INTERNAL')
+    content = b'private-png-synthetic'
+    digest = __import__('hashlib').sha256(content).hexdigest()
+    body['attachments'] = [{'index': 0, 'filename': 'private.png', 'mime_type': 'image/png',
+                            'size_bytes': len(content), 'sha256': digest}]
+    staged = client.put(
+        f"/internal/deep/executions/{body['execution_id']}/attachments/0",
+        content=content,
+        headers={'content-type': 'image/png', 'x-mg-filename': 'private.png',
+                 'x-mg-size': str(len(content)), 'x-mg-sha256': digest},
+    )
+    assert staged.status_code == 200 and staged.json()['status'] == 'STAGED'
+    response = client.post('/internal/deep/execute', json=body)
+    assert response.status_code == 200
+    sent = json.loads(calls[1].content)
+    part = sent['input'][-1]['content'][1]
+    assert part['type'] == 'input_image'
+    assert part['image_url'].startswith('data:image/png;base64,')
+    assert not (tmp_path / 'attachments' / body['execution_id']).exists()
+
+
+def test_private_attachment_cleanup_endpoint_is_authenticated_and_idempotent(deep, monkeypatch, tmp_path):
+    monkeypatch.setenv('MG_DEEP_ATTACHMENT_ROOT', str(tmp_path / 'attachments'))
+    client, _, _ = deep()
+    execution_id = str(uuid4())
+    content = b'private-text'
+    digest = __import__('hashlib').sha256(content).hexdigest()
+    staged = client.put(f'/internal/deep/executions/{execution_id}/attachments/0', content=content,
+        headers={'content-type': 'text/plain', 'x-mg-filename': 'notes.txt',
+                 'x-mg-size': str(len(content)), 'x-mg-sha256': digest})
+    assert staged.status_code == 200
+    assert client.delete(f'/internal/deep/executions/{execution_id}/attachments').status_code == 200
+    assert client.delete(f'/internal/deep/executions/{execution_id}/attachments').status_code == 200
+    assert not (tmp_path / 'attachments' / execution_id).exists()
 
 
 def test_session_and_auth_fail_closed(deep):

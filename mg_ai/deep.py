@@ -1,9 +1,12 @@
-"""Private text-only DEEP boundary, separate from FREE Gateway routes and credentials."""
+"""Private DEEP boundary, separate from FREE Gateway routes and credentials."""
 import hashlib
 import hmac
 import json
 import os
 import re
+import base64
+import shutil
+from urllib.parse import unquote
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +17,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from mg_ai.config import StrictModel
 from mg_ai.deep_state import DEEP_CONTEXT_VERSION, DEEP_SETTLEMENT_SECONDS, DeepState
@@ -29,13 +32,50 @@ DEEP_DEVELOPER_CONTEXT = (
 )
 
 
+DEEP_ATTACHMENT_LIMIT = 10
+DEEP_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+DEEP_TEXT_TOTAL_MAX_BYTES = 200_000
+DEEP_TEXT_MIME_TYPES = {
+    "text/plain", "text/markdown", "text/css", "text/html", "text/javascript",
+    "application/javascript", "application/json", "application/xml", "text/xml",
+}
+DEEP_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+DEEP_FILE_MIME_TYPES = {"application/pdf"}
+DEEP_SUPPORTED_MIME_TYPES = DEEP_TEXT_MIME_TYPES | DEEP_IMAGE_MIME_TYPES | DEEP_FILE_MIME_TYPES
+
+
+class DeepAttachment(StrictModel):
+    index: int = Field(ge=0, lt=DEEP_ATTACHMENT_LIMIT)
+    filename: str = Field(min_length=1, max_length=180)
+    mime_type: str = Field(min_length=1, max_length=160)
+    size_bytes: int = Field(gt=0, le=DEEP_ATTACHMENT_MAX_BYTES)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def supported(self) -> "DeepAttachment":
+        if self.mime_type not in DEEP_SUPPORTED_MIME_TYPES:
+            raise ValueError("unsupported deep attachment type")
+        if Path(self.filename).name != self.filename or "\x00" in self.filename:
+            raise ValueError("unsafe attachment filename")
+        return self
+
+
 class DeepRequest(StrictModel):
     execution_id: UUID
     task_id: UUID
     conversation_id: UUID
     attempt: int = Field(ge=1, le=1000000)
     input: str = Field(min_length=1, max_length=32000)
-    privacy_class: Literal["PUBLIC"]
+    privacy_class: Literal["PUBLIC", "INTERNAL"]
+    attachments: list[DeepAttachment] = Field(default_factory=list, max_length=DEEP_ATTACHMENT_LIMIT)
+
+    @model_validator(mode="after")
+    def attachment_contract(self) -> "DeepRequest":
+        if len({item.index for item in self.attachments}) != len(self.attachments):
+            raise ValueError("duplicate attachment index")
+        if self.attachments and self.privacy_class != "INTERNAL":
+            raise ValueError("private attachments require internal privacy")
+        return self
 
 
 class DeepResponse(StrictModel):
@@ -90,7 +130,8 @@ class DeepAdapter:
 
     async def execute(self, body: DeepRequest, thread_id: str,
                       previous_response_id: str | None,
-                      history: list[dict[str, Any]]) -> tuple[str, str]:
+                      history: list[dict[str, Any]],
+                      attachment_parts: list[dict[str, Any]] | None = None) -> tuple[str, str]:
         turn_id = str(body.execution_id)
         use_previous = self.optimize_previous_response and previous_response_id is not None
         messages: list[dict[str, Any]] = [{
@@ -107,7 +148,7 @@ class DeepAdapter:
                 ))
         messages.append({"type": "message", "role": "user", "id": "msg_" + turn_id,
             "internal_chat_message_metadata_passthrough": {"turn_id": turn_id},
-            "content": [{"type": "input_text", "text": body.input}]})
+            "content": [{"type": "input_text", "text": body.input}, *(attachment_parts or [])]})
         payload = {"model": DEEP_ROUTE, "stream": False, "tools": [], "tool_choice": "none",
             "reasoning": {"effort": "high"}, "max_output_tokens": 1024,
             "client_metadata": {"x-codex-turn-metadata": {
@@ -191,7 +232,54 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
 
     app = FastAPI(title="MG private DEEP", docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
-    app.add_middleware(Boundary)
+    app.add_middleware(Boundary, max_body_bytes=DEEP_ATTACHMENT_MAX_BYTES + 65536)
+    attachment_root = Path(os.getenv("MG_DEEP_ATTACHMENT_ROOT", "/state/deep-attachments"))
+
+    def execution_attachment_dir(execution_id: str) -> Path:
+        return attachment_root / execution_id
+
+    def attachment_paths(execution_id: str, index: int) -> tuple[Path, Path]:
+        root = execution_attachment_dir(execution_id)
+        return root / f"{index}.bin", root / f"{index}.json"
+
+    def remove_staged_attachments(execution_id: str) -> None:
+        try:
+            shutil.rmtree(execution_attachment_dir(execution_id))
+        except FileNotFoundError:
+            pass
+
+    def load_attachment_parts(execution_id: str, attachments: list[DeepAttachment]) -> list[dict[str, Any]]:
+        parts: list[dict[str, Any]] = []
+        text_total = 0
+        for item in sorted(attachments, key=lambda value: value.index):
+            data_path, metadata_path = attachment_paths(execution_id, item.index)
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                data = data_path.read_bytes()
+            except (OSError, ValueError, json.JSONDecodeError):
+                raise MGError("DEEP_ATTACHMENT_MISSING", 409) from None
+            if metadata != item.model_dump() or len(data) != item.size_bytes or hashlib.sha256(data).hexdigest() != item.sha256:
+                raise MGError("DEEP_ATTACHMENT_INTEGRITY_FAILED", 409)
+            if item.mime_type in DEEP_TEXT_MIME_TYPES:
+                text_total += len(data)
+                if text_total > DEEP_TEXT_TOTAL_MAX_BYTES:
+                    raise MGError("DEEP_TEXT_ATTACHMENTS_TOO_LARGE", 413)
+                try:
+                    text = data.decode("utf-8")
+                except UnicodeDecodeError:
+                    raise MGError("DEEP_ATTACHMENT_TEXT_INVALID", 415) from None
+                parts.append({"type": "input_text", "text":
+                              f"--- BEGIN PRIVATE ATTACHMENT: {item.filename} ---\n{text}\n"
+                              f"--- END PRIVATE ATTACHMENT: {item.filename} ---"})
+            elif item.mime_type in DEEP_IMAGE_MIME_TYPES:
+                parts.append({"type": "input_image", "image_url":
+                              f"data:{item.mime_type};base64,{base64.b64encode(data).decode('ascii')}"})
+            elif item.mime_type in DEEP_FILE_MIME_TYPES:
+                parts.append({"type": "input_file", "filename": item.filename,
+                              "file_data": f"data:{item.mime_type};base64,{base64.b64encode(data).decode('ascii')}"})
+            else:
+                raise MGError("DEEP_ATTACHMENT_TYPE_UNSUPPORTED", 415)
+        return parts
 
     def authenticate(request: Request) -> None:
         auth = request.headers.get("authorization", "")
@@ -236,6 +324,48 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
                 "continuity": "TASK_SCOPED", "privacy": "PUBLIC",
                 "upstream_checked": False}
 
+    @app.put("/internal/deep/executions/{execution_id}/attachments/{index}")
+    async def stage_attachment(request: Request, execution_id: UUID, index: int) -> dict[str, Any]:
+        authenticate(request)
+        if index < 0 or index >= DEEP_ATTACHMENT_LIMIT:
+            raise MGError("DEEP_ATTACHMENT_LIMIT_EXCEEDED", 400)
+        try:
+            filename = unquote(request.headers["x-mg-filename"])
+            mime_type = request.headers["content-type"].split(";", 1)[0].strip().lower()
+            size_bytes = int(request.headers["x-mg-size"])
+            sha256 = request.headers["x-mg-sha256"].lower()
+            metadata = DeepAttachment(index=index, filename=filename, mime_type=mime_type,
+                                      size_bytes=size_bytes, sha256=sha256)
+        except (KeyError, ValueError):
+            raise MGError("DEEP_ATTACHMENT_METADATA_INVALID", 400) from None
+        data = await request.body()
+        if len(data) != metadata.size_bytes or hashlib.sha256(data).hexdigest() != metadata.sha256:
+            raise MGError("DEEP_ATTACHMENT_INTEGRITY_FAILED", 400)
+        data_path, metadata_path = attachment_paths(str(execution_id), index)
+        data_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if data_path.exists() or metadata_path.exists():
+            try:
+                existing = json.loads(metadata_path.read_text(encoding="utf-8"))
+                if existing == metadata.model_dump() and hashlib.sha256(data_path.read_bytes()).hexdigest() == metadata.sha256:
+                    return {"status": "STAGED", "index": index, "idempotent": True}
+            except (OSError, ValueError, json.JSONDecodeError):
+                pass
+            raise MGError("DEEP_ATTACHMENT_CONFLICT", 409)
+        temporary = data_path.with_suffix(".tmp")
+        temporary.write_bytes(data)
+        os.chmod(temporary, 0o600)
+        temporary.replace(data_path)
+        metadata_path.write_text(json.dumps(metadata.model_dump(), ensure_ascii=False,
+                                            separators=(",", ":")), encoding="utf-8")
+        os.chmod(metadata_path, 0o600)
+        return {"status": "STAGED", "index": index, "idempotent": False}
+
+    @app.delete("/internal/deep/executions/{execution_id}/attachments")
+    async def clear_attachments(request: Request, execution_id: UUID) -> dict[str, str]:
+        authenticate(request)
+        remove_staged_attachments(str(execution_id))
+        return {"status": "REMOVED"}
+
     @app.post("/internal/deep/execute", response_model=DeepResponse)
     async def execute(request: Request, body: DeepRequest) -> DeepResponse:
         authenticate(request)
@@ -247,6 +377,7 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
         request.state.attempt = body.attempt
         if not configured or not state.control()["session_ready"]:
             raise MGError("DEEP_SESSION_UNAVAILABLE", 503)
+        attachment_parts = load_attachment_parts(execution_id, body.attachments)
         claim = state.claim(execution_id, task_id, conversation_id, body.attempt,
                             body.model_dump_json().encode(), body.input)
         try:
@@ -263,7 +394,7 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
         internal_attempt = state.start_dispatch_attempt(execution_id, mode)
         try:
             text, response_id = await adapter.execute(
-                body, claim["thread_id"], claim["previous_response_id"], claim["history"]
+                    body, claim["thread_id"], claim["previous_response_id"], claim["history"], attachment_parts
             )
         except MGError as exc:
             if exc.code == "DEEP_CONTINUITY_OPTIMIZATION_MISS" and mode == "PREVIOUS_RESPONSE_ID":
@@ -273,7 +404,7 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
                 internal_attempt = state.start_dispatch_attempt(execution_id, "FULL_TRANSCRIPT")
                 try:
                     text, response_id = await adapter.execute(
-                        body, claim["thread_id"], None, claim["history"]
+                        body, claim["thread_id"], None, claim["history"], attachment_parts
                     )
                 except MGError as recovered_exc:
                     state.finish_dispatch_attempt(
@@ -311,6 +442,7 @@ def create_deep_app(state: DeepState | None = None, adapter: DeepAdapter | None 
             raise MGError("EXECUTION_AMBIGUOUS", 502, reconciliation=True) from None
         state.finish_dispatch_attempt(execution_id, internal_attempt, "COMPLETED", True)
         state.mark(execution_id, "COMPLETED", response_id, text)
+        remove_staged_attachments(execution_id)
         evidence = state.evidence(execution_id)
         return DeepResponse(
             execution_id=body.execution_id, task_id=body.task_id,

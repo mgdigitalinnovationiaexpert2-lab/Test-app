@@ -11,7 +11,7 @@ from mg_ai.capacity import Capacity
 
 
 class State:
-    """SQLite is the single-host admission and execution journal, never a content cache."""
+    """SQLite is the single-host admission and durable execution-result journal."""
 
     def __init__(self, path: str) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -24,7 +24,8 @@ class State:
                 PRIMARY KEY(client, window));
             CREATE TABLE IF NOT EXISTS executions (
                 client TEXT, key_hash TEXT, body_hash TEXT, status TEXT, request_id TEXT,
-                updated REAL, PRIMARY KEY(client,key_hash));
+                updated REAL, result_json TEXT, error_code TEXT,
+                PRIMARY KEY(client,key_hash));
             CREATE TABLE IF NOT EXISTS health (
                 model TEXT PRIMARY KEY, status TEXT, cooldown REAL, failures INTEGER,
                 last_success REAL, last_failure REAL, latency_ms REAL);
@@ -38,6 +39,11 @@ class State:
                 id INTEGER PRIMARY KEY, provider TEXT NOT NULL, enabled INTEGER NOT NULL,
                 actor TEXT NOT NULL, reason TEXT NOT NULL, updated REAL NOT NULL);
         """)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(executions)")}
+        if "result_json" not in columns:
+            self.db.execute("ALTER TABLE executions ADD COLUMN result_json TEXT")
+        if "error_code" not in columns:
+            self.db.execute("ALTER TABLE executions ADD COLUMN error_code TEXT")
 
     def provider_enabled(self, provider: str) -> bool:
         row = self.db.execute("SELECT enabled FROM provider_control WHERE provider=?",
@@ -97,8 +103,12 @@ class State:
                 self.db.execute("INSERT INTO usage VALUES (?,?,1) ON CONFLICT(client,window) "
                                 "DO UPDATE SET count=count+1", (client, window))
             if digest:
-                self.db.execute("INSERT INTO executions VALUES (?,?,?,?,?,?)",
-                                (client, digest, body_hash, "ADMITTED", request_id, now))
+                self.db.execute(
+                    "INSERT INTO executions "
+                    "(client,key_hash,body_hash,status,request_id,updated,result_json,error_code) "
+                    "VALUES (?,?,?,?,?,?,NULL,NULL)",
+                    (client, digest, body_hash, "ADMITTED", request_id, now),
+                )
             self.db.execute("COMMIT")
         except BaseException:
             self.db.execute("ROLLBACK")
@@ -118,6 +128,41 @@ class State:
         if digest:
             self.db.execute("UPDATE executions SET status=?,updated=? WHERE client=? AND key_hash=?",
                             (status, time.time(), client, digest))
+
+    def complete(self, client: str, digest: str | None, result: dict[str, Any]) -> None:
+        if digest:
+            self.db.execute(
+                "UPDATE executions SET status='SUCCESS',result_json=?,error_code=NULL,updated=? "
+                "WHERE client=? AND key_hash=?",
+                (json.dumps(result, ensure_ascii=False, separators=(",", ":")),
+                 time.time(), client, digest),
+            )
+
+    def fail(self, client: str, digest: str | None, status: str, code: str) -> None:
+        if digest:
+            self.db.execute(
+                "UPDATE executions SET status=?,error_code=?,updated=? "
+                "WHERE client=? AND key_hash=?",
+                (status, code, time.time(), client, digest),
+            )
+
+    def reconcile(self, client: str, key: str) -> dict[str, Any]:
+        digest = hashlib.sha256(key.encode()).hexdigest()
+        row = self.db.execute(
+            "SELECT status,request_id,result_json,error_code,updated FROM executions "
+            "WHERE client=? AND key_hash=?", (client, digest),
+        ).fetchone()
+        if not row:
+            return {"status": "NOT_FOUND"}
+        status = row["status"]
+        base = {"request_id": row["request_id"], "updated_at": row["updated"]}
+        if status == "SUCCESS" and row["result_json"]:
+            return {**base, "status": "COMPLETED", "result": json.loads(row["result_json"])}
+        if status in {"ADMITTED", "DISPATCHED"}:
+            return {**base, "status": "PROCESSING"}
+        if status in {"TERMINAL", "SAFE_FAILURE"}:
+            return {**base, "status": "FAILED", "error_code": row["error_code"] or status}
+        return {**base, "status": "RECONCILIATION_REQUIRED"}
 
     def health(self, model: str) -> dict[str, Any]:
         row = self.db.execute("SELECT * FROM health WHERE model=?", (model,)).fetchone()

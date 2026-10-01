@@ -23,13 +23,15 @@ from mg_ai.providers import LiteLLMAdapter, Outcome
 from mg_ai.programmer import (CODEX_CAPABILITIES, CODEX_CONTEXT_BYTES, CODEX_MODEL,
                              ProgrammerAdapter, responses_payload)
 from mg_ai.requests import ChatRequest
+from mg_ai.config import StrictModel
 from mg_ai.routing import select
 from mg_ai.state import State
 
 
 class Boundary:
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, max_body_bytes: int = 1048576) -> None:
         self.app = app
+        self.max_body_bytes = max_body_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -47,7 +49,7 @@ class Boundary:
                     return
                 chunk = message.get("body", b"")
                 total += len(chunk)
-                if total > 1048576:
+                if total > self.max_body_bytes:
                     raise MGError("REQUEST_TOO_LARGE", 413)
                 chunks.append(chunk)
                 if not message.get("more_body", False):
@@ -172,6 +174,16 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                                             "created": 0}
                                            for route in sorted(config.clients[client].routes)]}
 
+    class ReconciliationRequest(StrictModel):
+        idempotency_key: str
+
+    @app.post("/internal/executions/reconcile")
+    async def reconcile_execution(request: Request, body: ReconciliationRequest) -> dict[str, Any]:
+        client = authenticate(request)
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", body.idempotency_key):
+            raise MGError("INVALID_IDEMPOTENCY_KEY")
+        return state.reconcile(client, body.idempotency_key)
+
     @app.post("/v1/chat/completions", response_model=None)
     async def chat(request: Request) -> Response:
         client = authenticate(request)
@@ -227,8 +239,7 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                 except BaseException:
                     state.execution(client, digest, "AMBIGUOUS")
                     raise MGError("EXECUTION_AMBIGUOUS", 422, reconciliation=True) from None
-                state.execution(client, digest, "SUCCESS" if result.outcome == Outcome.SUCCESS else
-                                "AMBIGUOUS" if result.outcome == Outcome.EXECUTION_AMBIGUOUS
+                state.execution(client, digest, "AMBIGUOUS" if result.outcome == Outcome.EXECUTION_AMBIGUOUS
                                 else "TERMINAL")
                 if policy.log_metadata:
                     emit(request_id=rid, client=client, route=body.model, provider="omniroute",
@@ -243,6 +254,7 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                 response = {**(result.response or {}), "id": f"chatcmpl-mg-{rid}",
                             "object": "chat.completion", "created": int(time.time()),
                             "model": body.model}
+                state.complete(client, digest, response)
                 response_headers = {"X-MG-Output-Limit": "upstream-best-effort"}
                 if body.stream:
                     return StreamingResponse(sse(response, bool(body.stream_options and
@@ -276,10 +288,10 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                      usage=result.response.get("usage", {}) if result.response else {},
                      cost_estimate_usd=0, cost_class="FREE")
             if result.outcome == Outcome.SUCCESS:
-                state.execution(client, digest, "SUCCESS")
                 response = {**(result.response or {}), "id": f"chatcmpl-mg-{rid}",
                             "object": "chat.completion", "created": int(time.time()),
                             "model": body.model}
+                state.complete(client, digest, response)
                 if body.stream:
                     return StreamingResponse(sse(response, bool(body.stream_options and
                                              body.stream_options.get("include_usage"))),
@@ -289,9 +301,10 @@ def create_app(config: Configuration | None = None, state: State | None = None,
                 state.execution(client, digest, "AMBIGUOUS")
                 raise MGError("EXECUTION_AMBIGUOUS", 502, reconciliation=True)
             if result.outcome == Outcome.FAILED_TERMINAL:
-                state.execution(client, digest, "TERMINAL")
+                state.fail(client, digest, "TERMINAL", "UPSTREAM_REJECTED")
                 raise MGError("UPSTREAM_REJECTED", 422)
-            state.execution(client, digest, "SAFE_FAILURE")
+            state.fail(client, digest, "SAFE_FAILURE", result.category or "SAFE_FAILURE")
+        state.fail(client, digest, "SAFE_FAILURE", "NO_ELIGIBLE_FREE_MODEL")
         raise MGError("NO_ELIGIBLE_FREE_MODEL", 503, retryable=True)
 
     return app

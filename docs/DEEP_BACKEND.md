@@ -4,8 +4,8 @@ Status: MG-owned task continuity is verified locally and with a fresh real two-t
 Continuity uses MG's canonical transcript and does not require OmniRoute/provider response state.
 This is an optional backend, separate from the FREE gateway. No Portal workflow or database
 is changed. Portal remains responsible for approval, authorization, task ownership and
-persisting the final answer. Initial allowed data: PUBLIC synthetic/public text only.
-No employee, HR, ERP or confidential data is authorized by this integration.
+persisting the final answer. Private Task attachments use the authenticated INTERNAL staging
+contract below; no file is exposed by a public URL.
 
 ## Contract
 
@@ -27,8 +27,8 @@ There is no browser session material in this API. Additional request fields are 
 
 All six fields are required. IDs are UUIDs. `attempt` starts at 1 and increments for each
 accepted execution in the same task/conversation. `input` is 1–32000 characters. No continuity
-token, model, route, tools, cookie or client-selected privacy upgrade is accepted. Request body
-limit is 1 MiB and the read deadline is 10 seconds.
+token, model, route, tools or cookie is accepted. `INTERNAL` is accepted only for the private
+attachment contract below. The read deadline is 10 seconds.
 
 Illustrative successful HTTP 200 (not a live result):
 
@@ -174,3 +174,19 @@ Primary reviewed sources:
 - [Connection validation](https://github.com/diegosouzapw/OmniRoute/blob/5a777a243b389355891bc3aa917139d7cef5d866/src/lib/providers/validation/chatgptWebCodex.ts)
 
 See [server runbook](SERVER_RUNBOOK.md) for private setup, stop and recovery.
+
+## Authenticated private attachments
+
+The Portal may stage up to 10 private attachments for one execution before calling
+`POST /internal/deep/execute`. Each file is sent to
+`PUT /internal/deep/executions/{execution_id}/attachments/{index}` with the same Deep bearer
+token, a raw request body, and `X-MG-Filename`, `X-MG-Size`, and `X-MG-Sha256` integrity
+metadata. Staging is idempotent for identical bytes and metadata. Files are stored privately,
+verified again at execution, and removed after terminal processing. The Portal can also call
+`DELETE /internal/deep/executions/{execution_id}/attachments` for idempotent cleanup.
+
+An attachment execution uses `privacy_class: "INTERNAL"` and includes only the staged
+metadata in its JSON body. Supported types are UTF-8 text/JSON/XML/source formats, PNG,
+JPEG, WebP, and PDF. Each file is limited to 10 MiB; combined inline text is limited to
+200,000 bytes. Unsupported or invalid content is rejected before provider dispatch with a
+specific `DEEP_ATTACHMENT_*` error. Files are never exposed through public URLs.
