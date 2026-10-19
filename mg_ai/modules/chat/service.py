@@ -16,8 +16,13 @@ from mg_ai.config.models import Configuration
 from mg_ai.database.gateway_repository import GatewayRepository
 from mg_ai.modules.chat.dto.chat import ChatRequest
 from mg_ai.observability import emit
-from mg_ai.programmer import (CODEX_CAPABILITIES, CODEX_CONTEXT_BYTES, CODEX_MODEL,
-                              ProgrammerAdapter, responses_payload)
+from mg_ai.programmer import (
+    CODEX_CAPABILITIES,
+    CODEX_CONTEXT_BYTES,
+    CODEX_MODEL,
+    ProgrammerAdapter,
+    responses_payload,
+)
 from mg_ai.providers import LiteLLMAdapter, Outcome
 from mg_ai.routing import select
 
