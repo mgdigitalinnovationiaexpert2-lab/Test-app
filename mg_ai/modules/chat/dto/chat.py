@@ -2,6 +2,7 @@
 import re
 from typing import Any, Literal, Self
 
+from jsonschema import Draft202012Validator
 from pydantic import Field, model_validator
 
 from mg_ai.common.base import StrictModel
@@ -68,8 +69,41 @@ class ChatRequest(StrictModel):
                 if set(tool) != {"type", "function"} or tool["type"] != "function":
                     raise ValueError("function tools only")
                 function = tool["function"]
-                if not isinstance(function, dict) or "name" not in function:
-                    raise ValueError("invalid function tool")
+                if not isinstance(function, dict) or set(function) - {
+                    "name", "description", "parameters", "strict"
+                }:
+                    raise ValueError("invalid function")
+                if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", function.get("name", "")):
+                    raise ValueError("invalid function name")
+                schema = function.get("parameters", {})
+                if not isinstance(schema, dict) or "$ref" in str(schema):
+                    raise ValueError("local inline tool schema required")
+                try:
+                    Draft202012Validator.check_schema(schema)
+                except Exception as exc:
+                    raise ValueError("invalid tool schema") from exc
+        if self.tool_choice is not None and not self.tools:
+            raise ValueError("tool_choice requires tools")
+        if isinstance(self.tool_choice, str) and self.tool_choice not in {"auto", "none", "required"}:
+            raise ValueError("invalid tool choice")
+        if isinstance(self.tool_choice, dict):
+            if set(self.tool_choice) != {"type", "function"} or self.tool_choice["type"] != "function":
+                raise ValueError("invalid tool choice")
+            if self.tool_choice["function"] not in [{"name": t["function"]["name"]}
+                                                    for t in self.tools or []]:
+                raise ValueError("unknown tool choice")
+        if self.response_format:
+            fmt = self.response_format
+            if fmt.get("type") not in {"json_object", "json_schema"}:
+                raise ValueError("unsupported response format")
+            if fmt["type"] == "json_schema":
+                schema = fmt.get("json_schema", {}).get("schema")
+                if not isinstance(schema, dict) or "$ref" in str(schema):
+                    raise ValueError("local inline schema required")
+                try:
+                    Draft202012Validator.check_schema(schema)
+                except Exception as exc:
+                    raise ValueError("invalid schema") from exc
         return self
 
     def capabilities(self) -> set[str]:
