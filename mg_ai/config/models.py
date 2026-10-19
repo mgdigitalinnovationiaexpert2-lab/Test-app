@@ -1,19 +1,14 @@
+"""Validated registry DTOs: Candidate, Route, Client and Configuration."""
 import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
-Capability = str
-Intent = Literal["LIGHT", "WORKHORSE", "FRONTIER"]
-Privacy = Literal["PUBLIC", "INTERNAL", "CONFIDENTIAL"]
-PRIVACY_LEVEL = {"PUBLIC": 0, "INTERNAL": 1, "CONFIDENTIAL": 2}
-
-
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+from mg_ai.common.base import StrictModel
+from mg_ai.config.constants import Capability, Intent, Privacy
 
 
 class Retry429Review(StrictModel):
