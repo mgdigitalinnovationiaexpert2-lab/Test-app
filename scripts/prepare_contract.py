@@ -25,6 +25,19 @@ config.models = [Candidate(
         valid_until=datetime.now(timezone.utc) + timedelta(hours=2),
     ) if name == "mock-limit" else None,
 ) for name, score in [("mock-error", .99), ("mock-limit", .98), ("mock-ok", .97)]]
+# The synthetic world keeps the real routes, but every Champion must resolve
+# to a mock deployment. mock-error scores highest, so selection still prefers
+# it first: the contract exercises the 500 reconciliation path, the
+# reviewed-429 safe fallback, and finally mock-ok, like a real fallback chain.
+for route in config.routes.values():
+    if route.champion:
+        route.champion = "mock-error"
+# The real dev-light route disables fallbacks, but the synthetic world
+# must prove the full failure chain: mock-error 500 parks the execution
+# in RECONCILIATION_REQUIRED, its cooldown then excludes it, the reviewed
+# mock-limit 429 is a safe fallback, and mock-ok completes. Without
+# fallbacks the second request could never reach a working deployment.
+config.routes["dev-light"].allow_fallbacks = True
 root = Path(".runtime/contract")
 for directory, name, value in [("model-registry", "models", [m.model_dump(mode="json") for m in config.models]),
                                ("policies", "clients", {k: v.model_dump(mode="json") for k, v in config.clients.items()}),
