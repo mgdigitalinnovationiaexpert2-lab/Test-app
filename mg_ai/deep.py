@@ -6,9 +6,9 @@ Boundary middleware and exception handlers. HTTP shapes live in controller.py,
 business logic in service.py and request/response contracts in dto/.
 """
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,17 +16,36 @@ from fastapi.responses import JSONResponse
 
 from mg_ai.common.errors import MGError
 from mg_ai.common.middleware import Boundary
-from mg_ai.database.deep_repository import (DEEP_CONTEXT_VERSION, DEEP_SETTLEMENT_SECONDS,
-                                             DeepRepository)
+from mg_ai.database.deep_repository import (
+    DEEP_CONTEXT_VERSION,
+    DEEP_SETTLEMENT_SECONDS,
+    DeepRepository,
+)
 from mg_ai.modules.deep.controller import configure, error_response, router
 from mg_ai.modules.deep.dto.deep import DEEP_ATTACHMENT_MAX_BYTES, DeepRequest, DeepResponse
-from mg_ai.modules.deep.service import (DEEP_DEVELOPER_CONTEXT, DEEP_ROUTE, OMNI_REVISION,
-                                        DeepAdapter, DeepService, secret_file)
+from mg_ai.modules.deep.service import (
+    DEEP_DEVELOPER_CONTEXT,
+    DEEP_ROUTE,
+    OMNI_REVISION,
+    DeepAdapter,
+    DeepService,
+    secret_file,
+)
 
 # Compatibility re-exports: tests and tooling import these from mg_ai.deep.
-__all__ = ["DEEP_CONTEXT_VERSION", "DEEP_DEVELOPER_CONTEXT", "DEEP_ROUTE", "DEEP_SETTLEMENT_SECONDS",
-           "DeepAdapter", "DeepRepository", "DeepRequest", "DeepResponse", "OMNI_REVISION",
-           "create_deep_app", "secret_file"]
+__all__ = [
+    "DEEP_CONTEXT_VERSION",
+    "DEEP_DEVELOPER_CONTEXT",
+    "DEEP_ROUTE",
+    "DEEP_SETTLEMENT_SECONDS",
+    "OMNI_REVISION",
+    "DeepAdapter",
+    "DeepRepository",
+    "DeepRequest",
+    "DeepResponse",
+    "create_deep_app",
+    "secret_file",
+]
 
 
 def create_deep_app(state: DeepRepository | None = None, adapter: DeepAdapter | None = None,

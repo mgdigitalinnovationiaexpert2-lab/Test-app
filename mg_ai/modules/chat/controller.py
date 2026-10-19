@@ -8,22 +8,24 @@ from mg_ai.modules.chat.dto.chat import ChatRequest
 
 router = APIRouter()
 
+# Injected once by the gateway composition root via configure().
+_service = None
+
 
 def configure(service) -> None:
     """Inject the ChatService built by the gateway composition root."""
-    router.state.service = service
+    global _service
+    _service = service
 
 
 @router.post("/v1/chat/completions", response_model=None)
 async def chat_completions(request: Request) -> Response:
-    service = router.state.service
-    client = service.authenticate(request)
-    body: ChatRequest = service.parse(await request.body())
-    return await service.completions(request, client, body)
+    client = _service.authenticate(request)
+    body: ChatRequest = _service.parse(await request.body())
+    return await _service.completions(request, client, body)
 
 
 @router.get("/v1/models")
 async def models(request: Request) -> dict[str, Any]:
-    service = router.state.service
-    client = service.authenticate(request)
-    return service.models(client)
+    client = _service.authenticate(request)
+    return _service.models(client)

@@ -1,7 +1,7 @@
 """DEEP controller: private HTTP boundary for executions and staged attachments."""
 import hashlib
 import hmac
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -10,25 +10,32 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from mg_ai.common.errors import MGError
-from mg_ai.modules.deep.dto.deep import (DEEP_ATTACHMENT_LIMIT, DeepAttachment, DeepRequest,
-                                         DeepResponse, attachment_metadata_from_headers)
+from mg_ai.modules.deep.dto.deep import (
+    DEEP_ATTACHMENT_LIMIT,
+    DeepRequest,
+    DeepResponse,
+    attachment_metadata_from_headers,
+)
 
 router = APIRouter()
+
+# Injected once by the DEEP composition root via configure().
+_service = None
+_token_digest = None
 
 
 def configure(service, token: str | None) -> None:
     """Inject the DeepService and the raw client token (validated at request time)."""
-    router.state.service = service
-    router.state.token_digest = (hashlib.sha256(token.encode()).digest()
-                                 if token and len(token) >= 32 else None)
+    global _service, _token_digest
+    _service = service
+    _token_digest = (hashlib.sha256(token.encode()).digest()
+                     if token and len(token) >= 32 else None)
 
 
 def authenticate(request: Request) -> None:
-    token_digest = router.state.token_digest
-    auth = request.headers.get("authorization", "")
-    if token_digest is None or len(token_digest) != 32 or not auth.startswith("Bearer ") \
+    if _token_digest is None or len(_token_digest) != 32 or not auth.startswith("Bearer ") \
             or len(auth) > 512 or not hmac.compare_digest(
-                hashlib.sha256(auth[7:].encode()).digest(), token_digest):
+                hashlib.sha256(auth[7:].encode()).digest(), _token_digest):
         raise MGError("UNAUTHENTICATED", 401)
 
 
@@ -75,8 +82,8 @@ async def execute(request: Request, body: DeepRequest) -> DeepResponse:
         execution_id=body.execution_id, task_id=body.task_id,
         conversation_id=body.conversation_id, request_id=request.state.request_id,
         attempt=body.attempt, answer=text,
-        created_at=datetime.fromtimestamp(evidence["created"], timezone.utc),
-        completed_at=datetime.fromtimestamp(evidence["updated"], timezone.utc),
+        created_at=datetime.fromtimestamp(evidence["created"], UTC),
+        completed_at=datetime.fromtimestamp(evidence["updated"], UTC),
     )
 
 

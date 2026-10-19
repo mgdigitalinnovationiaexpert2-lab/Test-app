@@ -11,9 +11,9 @@ registers routers, middleware and exception handlers.
 import hashlib
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError

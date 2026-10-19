@@ -2,12 +2,12 @@ import hashlib
 import json
 import sqlite3
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mg_ai.common.errors import MGError
 from mg_ai.common.capacity import Capacity
+from mg_ai.common.errors import MGError
 
 
 class GatewayRepository:
@@ -81,7 +81,7 @@ class GatewayRepository:
         body_hash = hashlib.sha256(body).hexdigest()
         windows = [(f"minute:{int(now // 60)}", rpm)]
         if monthly is not None:
-            month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")
+            month = datetime.fromtimestamp(now, UTC).strftime("%Y-%m")
             windows.append((f"month:{month}", monthly))
         self.db.execute("BEGIN IMMEDIATE")
         try:
