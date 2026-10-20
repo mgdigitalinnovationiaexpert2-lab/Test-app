@@ -1,0 +1,44 @@
+[
+  {
+    "id": "study-source", "route": "life-study",
+    "prompt": "فقط بر اساس این منبع پاسخ بده: کارگاه الف سه روز آموزش دارد. روز اول ایمنی، روز دوم کیفیت، روز سوم مرور است. تعداد شرکت‌کنندگان ذکر نشده است. JSON با کلیدهای days (عدد)، topics (آرایهٔ سه موضوع به ترتیب)، participants (null) و title (عنوان فارسی کوتاه) بده. هیچ واقعیت دیگری اضافه نکن.",
+    "schema": {"type":"object","required":["days","topics","participants","title"],"additionalProperties":false,"properties":{"days":{"type":"integer"},"topics":{"type":"array","items":{"type":"string"}},"participants":{"type":"null"},"title":{"type":"string"}}},
+    "expected": {"days":3,"topics":["ایمنی","کیفیت","مرور"],"participants":null},
+    "checks": {"faithfulness":["days","participants"],"coverage":["topics"],"instruction_following":["participants"]},
+    "persian_field":"title", "capabilities":["TEXT","PERSIAN","STRUCTURED_OUTPUT"]
+  },
+  {
+    "id":"study-long", "route":"life-study",
+    "prompt":"در منبع ساختگی زیر فقط مقدار سه نشانگر FIRST، MIDDLE و LAST مهم است. JSON با کلیدهای first، middle و last و همان مقادیر عددی بده.",
+    "long_context":true,
+    "schema":{"type":"object","required":["first","middle","last"],"additionalProperties":false,"properties":{"first":{"type":"integer"},"middle":{"type":"integer"},"last":{"type":"integer"}}},
+    "expected":{"first":173,"middle":482,"last":921},
+    "checks":{"faithfulness":["first","middle","last"],"coverage":["first","middle","last"],"long_context":["first","middle","last"]},
+    "capabilities":["TEXT","STRUCTURED_OUTPUT","LONG_CONTEXT"]
+  },
+  {
+    "id":"code-bug", "route":"dev-code",
+    "prompt":"Synthetic task: fix total(xs) which currently returns len(xs), but must return the sum, including empty and negative lists. Only src/total.py is in scope. Return JSON with path, replacement (one Python expression for the return value), and results for [], [2,3], [-2,1]. Do not change authentication, dependencies, or files outside scope.",
+    "schema":{"type":"object","required":["path","replacement","results"],"additionalProperties":false,"properties":{"path":{"type":"string"},"replacement":{"type":"string"},"results":{"type":"array","items":{"type":"integer"}}}},
+    "expected":{"path":"src/total.py","replacement":"sum(xs)","results":[0,5,-1]},
+    "checks":{"correctness":["replacement","results"],"scope_adherence":["path"],"reasoning":["results"],"code_quality":["replacement"]},
+    "capabilities":["TEXT","CODING","REASONING","STRUCTURED_OUTPUT"]
+  },
+  {
+    "id":"code-tool", "route":"dev-code",
+    "prompt":"Call propose_edit exactly once for path src/total.py with expression sum(xs). Do not call a shell or request another path. This tool is synthetic and will not be executed.",
+    "tool":true,
+    "schema":{"type":"object","required":["path","expression"],"additionalProperties":false,"properties":{"path":{"type":"string"},"expression":{"type":"string"}}},
+    "expected":{"path":"src/total.py","expression":"sum(xs)"},
+    "checks":{"scope_adherence":["path"],"tool_calling":["path","expression"],"instruction_following":["expression"]},
+    "capabilities":["TEXT","TOOL_CALLING"]
+  },
+  {
+    "id":"portal-note", "route":"portal-workhorse",
+    "prompt":"یادداشت کاملاً ساختگی: دو اقدام داریم: بررسی بسته‌بندی و اصلاح برچسب. بررسی بسته‌بندی پایان یافته است. اصلاح برچسب هنوز انجام نشده است. نام مسئول ذکر نشده است. فقط JSON شامل completed (آرایهٔ اقدام‌های پایان‌یافته)، pending (آرایهٔ اقدام‌های باقی‌مانده)، owner (null) و summary (یک جملهٔ فارسی کوتاه بدون افزودن واقعیت) بده.",
+    "schema":{"type":"object","required":["completed","pending","owner","summary"],"additionalProperties":false,"properties":{"completed":{"type":"array","items":{"type":"string"}},"pending":{"type":"array","items":{"type":"string"}},"owner":{"type":"null"},"summary":{"type":"string"}}},
+    "expected":{"completed":["بررسی بسته‌بندی"],"pending":["اصلاح برچسب"],"owner":null},
+    "checks":{"faithfulness":["completed","pending","owner"],"instruction_following":["owner"],"reasoning":["completed","pending"]},
+    "persian_field":"summary", "capabilities":["TEXT","PERSIAN","REASONING","STRUCTURED_OUTPUT"]
+  }
+]

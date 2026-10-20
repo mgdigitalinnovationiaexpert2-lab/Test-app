@@ -1,0 +1,52 @@
+name: mg-ai-benchmark
+services:
+  benchmark-proxy:
+    image: ghcr.io/berriai/litellm:v1.99.1@sha256:a53a7d3ffebede1925bd3ee8a21e4a7b9b63e2e68ec883af136edcccb6eeb82c
+    env_file: ../.env
+    environment:
+      LITELLM_LOG: CRITICAL
+      LITELLM_TELEMETRY: "False"
+      LITELLM_DISABLE_USAGE_COUNTS: "1"
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    volumes:
+      - ../.runtime/benchmark/litellm.yaml:/app/config.yaml:ro
+    user: "10001:10001"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: none
+    networks: [private]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)"]
+      interval: 10s
+      retries: 12
+  benchmark-runner:
+    profiles: [manual]
+    image: maghsoud-ai-infrastructure-gateway:0.1.0
+    env_file: ../.env
+    environment:
+      MG_BENCHMARK_PROXY_URL: http://benchmark-proxy:4000
+      MG_BENCHMARK_STATE_PATH: /results/benchmark.sqlite
+      MG_PROVIDER_CONTROL_STATE_PATH: /control/state.sqlite
+    entrypoint: [python, -m, mg_ai.live_benchmark]
+    volumes:
+      - ../reports/discovery.json:/catalog/discovery.json:ro
+      - ../reports/groq-discovery.json:/catalog/groq-discovery.json:ro
+      - ../.runtime/benchmark:/results
+      - provider-control:/control
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    depends_on:
+      benchmark-proxy:
+        condition: service_healthy
+networks:
+  private:
+    driver: bridge
+volumes:
+  provider-control:
+    external: true
+    name: maghsoud-ai-infrastructure_mg-state

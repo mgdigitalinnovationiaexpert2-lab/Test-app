@@ -1,0 +1,552 @@
+{
+  "$defs": {
+    "Candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "openrouter",
+            "groq",
+            "nvidia",
+            "openai-compatible",
+            "direct",
+            "omniroute"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "approved": {
+          "default": false,
+          "title": "Approved",
+          "type": "boolean"
+        },
+        "cost_class": {
+          "default": "FREE",
+          "enum": [
+            "FREE",
+            "PAID"
+          ],
+          "title": "Cost Class",
+          "type": "string"
+        },
+        "cost_tier": {
+          "default": "zero",
+          "title": "Cost Tier",
+          "type": "string"
+        },
+        "quality_tier": {
+          "default": "LIGHT",
+          "enum": [
+            "LIGHT",
+            "WORKHORSE",
+            "FRONTIER"
+          ],
+          "title": "Quality Tier",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "context_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Context Limit",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 4096,
+          "exclusiveMinimum": 0,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "credential_env": {
+          "pattern": "^[A-Z][A-Z0-9_]+$",
+          "title": "Credential Env",
+          "type": "string"
+        },
+        "api_base": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Base"
+        },
+        "privacy_classes": {
+          "default": [
+            "PUBLIC"
+          ],
+          "items": {
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL"
+            ],
+            "type": "string"
+          },
+          "title": "Privacy Classes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "data_policy_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Policy Url"
+        },
+        "data_policy_reviewed": {
+          "default": false,
+          "title": "Data Policy Reviewed",
+          "type": "boolean"
+        },
+        "retention_known": {
+          "default": false,
+          "title": "Retention Known",
+          "type": "boolean"
+        },
+        "training_use_known": {
+          "default": false,
+          "title": "Training Use Known",
+          "type": "boolean"
+        },
+        "confidential_allowed": {
+          "default": false,
+          "title": "Confidential Allowed",
+          "type": "boolean"
+        },
+        "free_verified_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Free Verified Until"
+        },
+        "free_evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Free Evidence"
+        },
+        "promotional": {
+          "default": false,
+          "title": "Promotional",
+          "type": "boolean"
+        },
+        "random_router": {
+          "default": false,
+          "title": "Random Router",
+          "type": "boolean"
+        },
+        "health": {
+          "default": "DISABLED",
+          "enum": [
+            "HEALTHY",
+            "DEGRADED",
+            "RATE_LIMITED",
+            "UNAVAILABLE",
+            "DISABLED"
+          ],
+          "title": "Health",
+          "type": "string"
+        },
+        "latency_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "failure_rate": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Failure Rate",
+          "type": "number"
+        },
+        "quota_remaining": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quota Remaining"
+        },
+        "benchmark_scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Benchmark Scores",
+          "type": "object"
+        },
+        "coding_suitability": {
+          "default": "unreviewed",
+          "title": "Coding Suitability",
+          "type": "string"
+        },
+        "reasoning_suitability": {
+          "default": "unreviewed",
+          "title": "Reasoning Suitability",
+          "type": "string"
+        },
+        "persian_suitability": {
+          "default": "unreviewed",
+          "title": "Persian Suitability",
+          "type": "string"
+        },
+        "role": {
+          "default": "candidate",
+          "enum": [
+            "champion",
+            "challenger",
+            "candidate"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "idempotency_guaranteed": {
+          "const": false,
+          "default": false,
+          "title": "Idempotency Guaranteed",
+          "type": "boolean"
+        },
+        "retry_429_review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Retry429Review"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "model",
+        "context_limit",
+        "credential_env"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
+    "Client": {
+      "additionalProperties": false,
+      "properties": {
+        "token_env": {
+          "title": "Token Env",
+          "type": "string"
+        },
+        "additional_token_envs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Additional Token Envs",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "routes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Routes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "paid_allowed": {
+          "const": false,
+          "default": false,
+          "title": "Paid Allowed",
+          "type": "boolean"
+        },
+        "monthly_budget_usd": {
+          "const": 0,
+          "default": 0,
+          "title": "Monthly Budget Usd",
+          "type": "integer"
+        },
+        "requests_per_minute": {
+          "exclusiveMinimum": 0,
+          "title": "Requests Per Minute",
+          "type": "integer"
+        },
+        "monthly_request_limit": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Request Limit"
+        },
+        "model_allowlist": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Allowlist"
+        },
+        "allowed_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Capabilities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "privacy_classes": {
+          "items": {
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL"
+            ],
+            "type": "string"
+          },
+          "title": "Privacy Classes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "default_privacy": {
+          "enum": [
+            "PUBLIC",
+            "INTERNAL",
+            "CONFIDENTIAL"
+          ],
+          "title": "Default Privacy",
+          "type": "string"
+        },
+        "log_metadata": {
+          "default": true,
+          "title": "Log Metadata",
+          "type": "boolean"
+        },
+        "log_content": {
+          "const": false,
+          "default": false,
+          "title": "Log Content",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "token_env",
+        "routes",
+        "requests_per_minute",
+        "allowed_capabilities",
+        "privacy_classes",
+        "default_privacy"
+      ],
+      "title": "Client",
+      "type": "object"
+    },
+    "Retry429Review": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "const": "LiteLLMAdapter",
+          "title": "Adapter",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "semantics": {
+          "const": "REJECTED_BEFORE_EXECUTION",
+          "title": "Semantics",
+          "type": "string"
+        },
+        "evidence": {
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "reviewed_by": {
+          "minLength": 1,
+          "title": "Reviewed By",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapter",
+        "provider",
+        "model",
+        "semantics",
+        "evidence",
+        "reviewed_by",
+        "valid_until"
+      ],
+      "title": "Retry429Review",
+      "type": "object"
+    },
+    "Route": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "default": "FREE",
+          "enum": [
+            "FREE",
+            "CODEX"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "allow_fallbacks": {
+          "default": true,
+          "title": "Allow Fallbacks",
+          "type": "boolean"
+        },
+        "intent": {
+          "enum": [
+            "LIGHT",
+            "WORKHORSE",
+            "FRONTIER"
+          ],
+          "title": "Intent",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "min_quality": {
+          "default": 0.6,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Quality",
+          "type": "number"
+        },
+        "champion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Champion"
+        },
+        "allow_random": {
+          "default": false,
+          "title": "Allow Random",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "intent",
+        "capabilities",
+        "task"
+      ],
+      "title": "Route",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "models": {
+      "items": {
+        "$ref": "#/$defs/Candidate"
+      },
+      "title": "Models",
+      "type": "array"
+    },
+    "routes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Route"
+      },
+      "title": "Routes",
+      "type": "object"
+    },
+    "clients": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Client"
+      },
+      "title": "Clients",
+      "type": "object"
+    }
+  },
+  "required": [
+    "models",
+    "routes",
+    "clients"
+  ],
+  "title": "Configuration",
+  "type": "object"
+}

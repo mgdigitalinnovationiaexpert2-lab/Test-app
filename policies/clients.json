@@ -1,0 +1,97 @@
+{
+  "portal": {
+    "token_env": "MG_PORTAL_TOKEN",
+    "routes": [
+      "portal-normal",
+      "portal-light",
+      "portal-workhorse"
+    ],
+    "paid_allowed": false,
+    "monthly_budget_usd": 0,
+    "requests_per_minute": 30,
+    "monthly_request_limit": 10000,
+    "allowed_capabilities": [
+      "TEXT",
+      "CODING",
+      "REASONING",
+      "TOOL_CALLING",
+      "STRUCTURED_OUTPUT",
+      "VISION",
+      "LONG_CONTEXT",
+      "PERSIAN",
+      "DOCUMENT_ANALYSIS"
+    ],
+    "privacy_classes": [
+      "PUBLIC",
+      "INTERNAL"
+    ],
+    "default_privacy": "INTERNAL",
+    "log_metadata": true,
+    "log_content": false
+  },
+  "life-os": {
+    "token_env": "MG_LIFE_OS_TOKEN",
+    "routes": [
+      "life-study",
+      "life-document",
+      "study-generation",
+      "document-analysis"
+    ],
+    "paid_allowed": false,
+    "monthly_budget_usd": 0,
+    "requests_per_minute": 20,
+    "monthly_request_limit": 10000,
+    "allowed_capabilities": [
+      "TEXT",
+      "CODING",
+      "REASONING",
+      "TOOL_CALLING",
+      "STRUCTURED_OUTPUT",
+      "VISION",
+      "LONG_CONTEXT",
+      "PERSIAN",
+      "DOCUMENT_ANALYSIS"
+    ],
+    "privacy_classes": [
+      "PUBLIC"
+    ],
+    "default_privacy": "PUBLIC",
+    "log_metadata": true,
+    "log_content": false
+  },
+  "developer": {
+    "token_env": "MG_DEV_TOKEN",
+    "routes": [
+      "dev-light",
+      "dev-code",
+      "dev-reasoning",
+      "dev-vision",
+      "dev-strong"
+    ],
+    "paid_allowed": false,
+    "monthly_budget_usd": 0,
+    "requests_per_minute": 30,
+    "monthly_request_limit": 10000,
+    "allowed_capabilities": [
+      "TEXT",
+      "CODING",
+      "REASONING",
+      "TOOL_CALLING",
+      "STRUCTURED_OUTPUT",
+      "VISION",
+      "LONG_CONTEXT",
+      "PERSIAN",
+      "DOCUMENT_ANALYSIS"
+    ],
+    "privacy_classes": [
+      "PUBLIC",
+      "INTERNAL"
+    ],
+    "default_privacy": "INTERNAL",
+    "log_metadata": true,
+    "log_content": false,
+    "additional_token_envs": [
+      "MG_DEV_TOKEN_EXPERT2"
+    ]
+  }
+}

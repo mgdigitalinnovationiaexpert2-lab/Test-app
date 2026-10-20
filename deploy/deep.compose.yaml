@@ -1,0 +1,85 @@
+# Optional backend: never attached to the FREE proxy network. Owner setup is required.
+services:
+  deep:
+    profiles: [deep]
+    image: maghsoud-ai-infrastructure-gateway:0.1.0
+    command: [uvicorn, "mg_ai.deep:create_deep_app", --factory, --host, "0.0.0.0", --port, "8081", --no-access-log, --workers, "1"]
+    environment:
+      MG_STATE_PATH: /state/state.sqlite
+      MG_OMNI_URL: http://omniroute:20129
+      MG_DEEP_TOKEN_FILE: /run/secrets/deep_client
+      MG_OMNI_TOKEN_FILE: /run/secrets/omni_api
+    secrets: [deep_client, omni_api]
+    volumes: ["mg-state:/state"]
+    ports: ["127.0.0.1:8091:8081"]
+    networks: [deep_boundary, deep_host]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,noexec,nosuid"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health/live', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    depends_on: [omniroute]
+  omniroute:
+    profiles: [deep]
+    image: diegosouzapw/omniroute:3.8.50-web@sha256:ee6168e2a48fd2482c0416e6a53a27dc2f3609e169cc5f873ff7b1e5a520cf53
+    platform: linux/amd64
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      DASHBOARD_PORT: "20128"
+      API_PORT: "20129"
+      API_HOST: 0.0.0.0
+      CHATGPT_WEB_CODEX_CDP_URL: http://chatgpt-web-codex-browser:9223
+    ports: ["127.0.0.1:20128:20128"]
+    volumes: ["omni-data:/app/data"]
+    networks: [deep_boundary, browser_private]
+    depends_on: [chatgpt-web-codex-browser]
+    restart: unless-stopped
+    logging:
+      driver: none
+  chatgpt-web-codex-browser:
+    profiles: [deep]
+    image: diegosouzapw/omniroute:3.8.50-web@sha256:ee6168e2a48fd2482c0416e6a53a27dc2f3609e169cc5f873ff7b1e5a520cf53
+    platform: linux/amd64
+    user: "0:0"
+    entrypoint: [/bin/sh, -c]
+    command:
+      - "mkdir -p /browser-profile && chown node:node /browser-profile && exec runuser -u node -- /bin/sh /opt/mg-start-browser.sh"
+    volumes:
+      - omni-browser:/browser-profile
+      - ./deploy/cdp-proxy.mjs:/opt/mg-cdp-proxy.mjs:ro
+      - ./deploy/start-browser.sh:/opt/mg-start-browser.sh:ro
+    networks: [browser_private]
+    shm_size: 2gb
+    tmpfs: ["/tmp:size=256m,nosuid"]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:9223/json/version').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: none
+volumes:
+  omni-data:
+  omni-browser:
+networks:
+  deep_boundary:
+    internal: true
+  deep_host:
+    external: true
+    name: maghsoud-ai-infrastructure_deep_host
+  browser_private:
+    driver: bridge
+secrets:
+  deep_client:
+    file: ./.runtime/deep/client-token
+  omni_api:
+    file: ./.runtime/deep/omni-api-token
