@@ -11,11 +11,21 @@ from typing import Any
 import httpx
 
 from mg_ai.common.errors import MGError
-from mg_ai.database.deep_repository import DEEP_CONTEXT_VERSION, DEEP_SETTLEMENT_SECONDS, DeepRepository
-from mg_ai.modules.deep.dto.deep import (DEEP_ATTACHMENT_LIMIT, DEEP_FILE_MIME_TYPES,
-                                         DEEP_IMAGE_MIME_TYPES, DEEP_SUPPORTED_MIME_TYPES,
-                                         DEEP_TEXT_MIME_TYPES, DEEP_TEXT_TOTAL_MAX_BYTES,
-                                         DeepAttachment, DeepRequest)
+from mg_ai.database.deep_repository import (
+    DEEP_CONTEXT_VERSION,
+    DEEP_SETTLEMENT_SECONDS,
+    DeepRepository,
+)
+from mg_ai.modules.deep.dto.deep import (
+    DEEP_ATTACHMENT_LIMIT,
+    DEEP_FILE_MIME_TYPES,
+    DEEP_IMAGE_MIME_TYPES,
+    DEEP_SUPPORTED_MIME_TYPES,
+    DEEP_TEXT_MIME_TYPES,
+    DEEP_TEXT_TOTAL_MAX_BYTES,
+    DeepAttachment,
+    DeepRequest,
+)
 
 DEEP_ROUTE = "cx/gpt-5.6-sol-high"
 OMNI_REVISION = "5a777a243b389355891bc3aa917139d7cef5d866"

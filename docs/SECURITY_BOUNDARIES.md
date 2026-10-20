@@ -7,7 +7,7 @@ file-mounted, session state protected in separate volumes. No tools or private c
 are authorized. See [DEEP contract](DEEP_BACKEND.md) and [server runbook](SERVER_RUNBOOK.md).
 
 Derived from [Gateway](../mg_ai/gateway.py), [adapter](../mg_ai/providers.py),
-[request validation](../mg_ai/requests.py), [configuration](../mg_ai/config.py),
+[request validation](../mg_ai/modules/chat/dto/chat.py), [configuration](../mg_ai/config/models.py),
 [proxy renderer](../mg_ai/proxy_config.py) and [Compose](../compose.yaml).
 
 ## External data and keys

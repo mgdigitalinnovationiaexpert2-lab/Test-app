@@ -1,7 +1,7 @@
 """Validated registry DTOs: Candidate, Route, Client and Configuration."""
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Self
 
@@ -94,7 +94,7 @@ class Candidate(StrictModel):
         return self
 
     def available(self, now: datetime | None = None) -> bool:
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         return bool(self.enabled and self.approved and os.getenv(self.credential_env)
                     and self.cost_class == "FREE" and self.free_verified_until
                     and self.free_verified_until > now and self.quota_remaining != 0

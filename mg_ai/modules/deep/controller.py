@@ -1,7 +1,7 @@
 """DEEP controller: private HTTP boundary for executions and staged attachments."""
 import hashlib
 import hmac
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -10,25 +10,39 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from mg_ai.common.errors import MGError
-from mg_ai.modules.deep.dto.deep import (DEEP_ATTACHMENT_LIMIT, DeepAttachment, DeepRequest,
-                                         DeepResponse, attachment_metadata_from_headers)
+from mg_ai.modules.deep.dto.deep import (
+    DEEP_ATTACHMENT_LIMIT,
+    DeepRequest,
+    DeepResponse,
+    attachment_metadata_from_headers,
+)
 
 router = APIRouter()
 
+# Injected once by the DEEP composition root via configure().
+_service = None
+_token = ""
+_token_digest = b"\x00" * 32
+
 
 def configure(service, token: str | None) -> None:
-    """Inject the DeepService and the raw client token (validated at request time)."""
-    router.state.service = service
-    router.state.token_digest = (hashlib.sha256(token.encode()).digest()
-                                 if token and len(token) >= 32 else None)
+    """Inject the DeepService and the client token.
+
+    Semantics preserved from the legacy deep.py closure: the digest is always
+    computed, while readiness of authentication depends on the raw token length
+    (>= 32), so an empty/short token yields 401 for every authenticated route.
+    """
+    global _service, _token, _token_digest
+    _service = service
+    _token = token or ""
+    _token_digest = hashlib.sha256(_token.encode()).digest()
 
 
 def authenticate(request: Request) -> None:
-    token_digest = router.state.token_digest
     auth = request.headers.get("authorization", "")
-    if token_digest is None or len(token_digest) != 32 or not auth.startswith("Bearer ") \
+    if len(_token) < 32 or not auth.startswith("Bearer ") \
             or len(auth) > 512 or not hmac.compare_digest(
-                hashlib.sha256(auth[7:].encode()).digest(), token_digest):
+                hashlib.sha256(auth[7:].encode()).digest(), _token_digest):
         raise MGError("UNAUTHENTICATED", 401)
 
 
@@ -40,7 +54,7 @@ async def live() -> dict[str, str]:
 @router.get("/health/ready")
 async def ready(request: Request) -> dict[str, Any]:
     authenticate(request)
-    return router.state.service.readiness()
+    return _service.readiness()
 
 
 @router.put("/internal/deep/executions/{execution_id}/attachments/{index}")
@@ -53,13 +67,13 @@ async def stage_attachment(request: Request, execution_id: UUID, index: int) -> 
         metadata = attachment_metadata_from_headers(index, request.headers, data)
     except (KeyError, ValueError, ValidationError):
         raise MGError("DEEP_ATTACHMENT_METADATA_INVALID", 400) from None
-    return router.state.service.stage_attachment(str(execution_id), index, metadata, data)
+    return _service.stage_attachment(str(execution_id), index, metadata, data)
 
 
 @router.delete("/internal/deep/executions/{execution_id}/attachments")
 async def clear_attachments(request: Request, execution_id: UUID) -> dict[str, str]:
     authenticate(request)
-    router.state.service.remove_staged_attachments(str(execution_id))
+    _service.remove_staged_attachments(str(execution_id))
     return {"status": "REMOVED"}
 
 
@@ -70,19 +84,19 @@ async def execute(request: Request, body: DeepRequest) -> DeepResponse:
     request.state.task_id = str(body.task_id)
     request.state.conversation_id = str(body.conversation_id)
     request.state.attempt = body.attempt
-    text, evidence = await router.state.service.execute(request.state.request_id, body)
+    text, evidence = await _service.execute(request.state.request_id, body)
     return DeepResponse(
         execution_id=body.execution_id, task_id=body.task_id,
         conversation_id=body.conversation_id, request_id=request.state.request_id,
         attempt=body.attempt, answer=text,
-        created_at=datetime.fromtimestamp(evidence["created"], timezone.utc),
-        completed_at=datetime.fromtimestamp(evidence["updated"], timezone.utc),
+        created_at=datetime.fromtimestamp(evidence["created"], UTC),
+        completed_at=datetime.fromtimestamp(evidence["updated"], UTC),
     )
 
 
 def error_response(request: Request, exc: MGError) -> JSONResponse:
     """Shared exception-handler body: attach execution evidence when known."""
-    service = router.state.service
+    service = _service
     body = exc.body(request.state.request_id)
     execution_id = getattr(request.state, "execution_id", None)
     if execution_id:
