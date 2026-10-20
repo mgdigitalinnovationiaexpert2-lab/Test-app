@@ -10,29 +10,48 @@ under **Writes/side effects**. Unless marked **NETWORK**, the function makes no 
 cannot directly consume provider quota or spend money. NETWORK metadata calls do not infer;
 NETWORK inference can consume quota, with paid inference prohibited by surrounding guards.
 
-## Gateway and request validation
+## Gateway composition root and chat feature module
 
-[gateway.py](../mg_ai/gateway.py) owns the client boundary and execution coordination.
+[gateway.py](../mg_ai/gateway.py) is the composition root only: it builds configuration,
+state, adapters and services, then registers routers, middleware and exception handlers.
 Owner consequence: this is where a permitted request becomes an irreversible external dispatch.
 
 | Exact function | Reads/input | Result / failure | Writes/side effects |
 |---|---|---|---|
+| `create_app` | Config root, tokens, proxy URL, state path | FastAPI app; startup fails for weak/shared credentials or invalid config | Opens SQLite and HTTP client; registers handlers; wires module controllers; no inference |
+
+<!-- symbol: mg_ai/gateway.py::create_app -->
+
+[common/middleware.py](../mg_ai/common/middleware.py) owns the client body boundary.
+
+| Exact function | Reads/input | Result / failure | Writes/side effects |
+|---|---|---|---|
 | `Boundary.__call__` | ASGI body chunks | Bounded body + request ID; 413 too large / 408 read timeout | Buffers body in memory, response request-ID header |
-| `create_app` | Config root, tokens, proxy URL, state path | FastAPI app; startup fails for weak/shared credentials or invalid config | Opens SQLite and HTTP client; registers handlers; no inference |
-| `create_app.authenticate` | Bearer header, prehashed client tokens | Client name or UNAUTHENTICATED | None; constant-time digest comparisons |
-| `create_app.chat` | Validated request, client minimum/default privacy, route, candidates | Rejects privacy downgrade before admission; completion or MG error | Admission, journal, model health, audit; provider control rechecked before NETWORK via adapter |
-| `create_app.ready` | Client profile, SQLite, model eligibility | Ready/empty-pool summary; not provider probe | SQL SELECT and local filters only |
+
+<!-- symbol: mg_ai/common/middleware.py::Boundary.__call__ -->
+
+[modules/chat/controller.py](../mg_ai/modules/chat/controller.py) exposes the HTTP surface
+(`/v1/chat/completions`, `/v1/models`) and delegates everything else to the service.
+[modules/chat/service.py](../mg_ai/modules/chat/service.py) owns authentication, admission,
+routing/fallback, provider dispatch and streaming.
+Owner consequence: the chat pipeline is where validated intent reaches a provider.
+
+| Exact function | Reads/input | Result / failure | Writes/side effects |
+|---|---|---|---|
+| `ChatService.authenticate` | Bearer header, prehashed client tokens | Client name or UNAUTHENTICATED | None; constant-time digest comparisons |
+| `ChatService.completions` | Validated request, client minimum/default privacy, route, candidates | Rejects privacy downgrade before admission; completion or MG error | Admission, journal, model health, audit; provider control rechecked before NETWORK via adapter |
+| `AdminService.ready` | Client profile, SQLite, model eligibility | Ready/empty-pool summary; not provider probe | SQL SELECT and local filters only |
 | `sse` | Validated full response, usage flag | Completion chunks and DONE | Yields buffered output; never executes tools |
 
-<!-- symbol: mg_ai/gateway.py::Boundary.__call__ -->
-<!-- symbol: mg_ai/gateway.py::create_app -->
-<!-- symbol: mg_ai/gateway.py::create_app.authenticate -->
-<!-- symbol: mg_ai/gateway.py::create_app.chat -->
-<!-- symbol: mg_ai/gateway.py::create_app.ready -->
-<!-- symbol: mg_ai/gateway.py::sse -->
+<!-- symbol: mg_ai/modules/chat/service.py::ChatService.authenticate -->
+<!-- symbol: mg_ai/modules/chat/service.py::ChatService.completions -->
+<!-- symbol: mg_ai/modules/admin/service.py::AdminService.ready -->
+<!-- symbol: mg_ai/modules/chat/service.py::sse -->
 
-[requests.py](../mg_ai/requests.py) defines `Message`, `ChatRequest` and `RoutingInput`.
-Owner consequence: accepting an API field is not permission to send arbitrary data or tools.
+[modules/chat/dto/chat.py](../mg_ai/modules/chat/dto/chat.py) defines `Message`, `ChatRequest`
+and `RoutingInput`; [requests.py](../mg_ai/requests.py) is a compatibility re-export of the
+same DTOs. Owner consequence: accepting an API field is not permission to send arbitrary data
+or tools.
 
 | Exact function | Reads/input | Result / failure | Writes/side effects |
 |---|---|---|---|
@@ -40,16 +59,26 @@ Owner consequence: accepting an API field is not permission to send arbitrary da
 | `ChatRequest.supported_options` | Tool declarations, choice, response schema, stream options | Valid options or validation error | None |
 | `ChatRequest.capabilities` | Request content/options and explicit MG capabilities | Required capability set used by policy/router | None |
 
-<!-- symbol: mg_ai/requests.py::Message.content_safety -->
-<!-- symbol: mg_ai/requests.py::ChatRequest.supported_options -->
-<!-- symbol: mg_ai/requests.py::ChatRequest.capabilities -->
+<!-- symbol: mg_ai/modules/chat/dto/chat.py::Message.content_safety -->
+<!-- symbol: mg_ai/modules/chat/dto/chat.py::ChatRequest.supported_options -->
+<!-- symbol: mg_ai/modules/chat/dto/chat.py::ChatRequest.capabilities -->
+
+[modules/executions/controller.py](../mg_ai/modules/executions/controller.py) serves
+`/internal/executions/reconcile` (DTO `ReconciliationRequest`, thin controller,
+`ExecutionsService.reconcile` reading the journal).
+[modules/admin/controller.py](../mg_ai/modules/admin/controller.py) serves gateway
+`/health/live` and `/health/ready` (GET-only, so no inbound DTO layer by design).
+[modules/providers/__init__.py](../mg_ai/modules/providers/__init__.py) is a facade that
+re-exports the upstream adapters (`LiteLLMAdapter`, `ProgrammerAdapter`, `Outcome`, `Result`);
+it has no HTTP routes of its own because dispatch belongs to the chat service.
 
 ## Registry, selection and dispatch
 
-[config.py](../mg_ai/config.py): `Candidate` is the model record; `Client` and `Route` are
-policy records. `Client.paid_allowed` is Literal[False], budget Literal[0]. They are not
-admin toggles for enabling payment. [routing.py](../mg_ai/routing.py) applies the records.
-Owner consequence: wrong approval metadata can authorize data transmission; maintain evidence.
+[config/models.py](../mg_ai/config/models.py): `Candidate` is the model record; `Client` and
+`Route` are policy records. `Client.paid_allowed` is Literal[False], budget Literal[0]. They
+are not admin toggles for enabling payment. [routing.py](../mg_ai/routing.py) applies the
+records. Owner consequence: wrong approval metadata can authorize data transmission; maintain
+evidence.
 
 | Exact function | Reads/input | Result / failure | Writes/side effects |
 |---|---|---|---|
@@ -57,12 +86,12 @@ Owner consequence: wrong approval metadata can authorize data transmission; main
 | `Candidate.safety` | Model enablement, free evidence, privacy flags | Rejects paid enabled models, missing review, unsafe confidential flags, random-router mislabeling | None; cannot verify evidence truth |
 | `Candidate.available` | Enable/approval, environment key, expiry, configured health/quota | Boolean eligibility prerequisite | None; no provider verification |
 | `Configuration.references` | IDs, clients, routes, allowlists, Champions | Rejects bad references, duplicates, random Champion | None |
-| `select` | Config/policy/route, required capabilities, privacy, context/output, provider control and health state | Ordered eligible list excluding disabled providers; empty list, not an exception | Reads state; no HTTP. `chat` converts empty to NO_ELIGIBLE_FREE_MODEL |
+| `select` | Config/policy/route, required capabilities, privacy, context/output, provider control and health state | Ordered eligible list excluding disabled providers; empty list, not an exception | Reads state; no HTTP. `ChatService.completions` converts empty to NO_ELIGIBLE_FREE_MODEL |
 
-<!-- symbol: mg_ai/config.py::load_config -->
-<!-- symbol: mg_ai/config.py::Candidate.safety -->
-<!-- symbol: mg_ai/config.py::Candidate.available -->
-<!-- symbol: mg_ai/config.py::Configuration.references -->
+<!-- symbol: mg_ai/config/models.py::load_config -->
+<!-- symbol: mg_ai/config/models.py::Candidate.safety -->
+<!-- symbol: mg_ai/config/models.py::Candidate.available -->
+<!-- symbol: mg_ai/config/models.py::Configuration.references -->
 <!-- symbol: mg_ai/routing.py::select -->
 
 `select` sorts by descending task score, Champion preference, runtime healthy status, known
@@ -87,30 +116,33 @@ not a reason to retry. See [failure classification](FAILURE_AND_RECOVERY.md).
 
 ## Persistence and capacity
 
-[state.py](../mg_ai/state.py) contains `State`; its constructor creates WAL tables and
-directories. SQLite is a single-host journal and counter, not a billing ledger or answer cache.
+[state.py](../mg_ai/state.py) is a compatibility alias; `GatewayRepository` in
+[database/gateway_repository.py](../mg_ai/database/gateway_repository.py) contains the journal
+logic; its constructor creates WAL tables and directories. SQLite is a single-host journal and
+counter, not a billing ledger or answer cache.
 
 | Exact function | Reads/input | Result / failure | Writes/side effects |
 |---|---|---|---|
-| `State.admit` | Client, limits, key, canonical body, request ID | Digest or 429 quota / 409 duplicate/conflict | BEGIN IMMEDIATE transaction increments usage and inserts ADMITTED; rolls back on failure |
-| `State.check_duplicate` | Client/key/body hashes | No result or 409; marks reconciliation for DISPATCHED/AMBIGUOUS | Read only |
-| `State.execution` | Client/digest/status | No return; SQLite errors possible | Updates status and time; no transition validation or reconciliation engine |
-| `State.record` | Model/outcome/latency/retry-after | No return | Upserts health, failures, timestamps and cooldown |
-| `State.save_capacity` | Capacity record | No return | Upserts JSON observation with credential fingerprint |
-| `State.capacity` | Provider/account | Capacity or None; corrupt observation can fail validation | Read only |
-| `State.provider_enabled` | Provider name | Persisted control flag; absent row defaults enabled | Read only; no model enablement |
-| `State.set_provider_enabled` | Provider, flag, actor and reason | Rejects missing attribution | Atomic control upsert and append-only application audit insert |
+| `GatewayRepository.admit` | Client, limits, key, canonical body, request ID | Digest or 429 quota / 409 duplicate/conflict | BEGIN IMMEDIATE transaction increments usage and inserts ADMITTED; rolls back on failure |
+| `GatewayRepository.check_duplicate` | Client/key/body hashes | No result or 409; marks reconciliation for DISPATCHED/AMBIGUOUS | Read only |
+| `GatewayRepository.execution` | Client/digest/status | No return; SQLite errors possible | Updates status and time; no transition validation or reconciliation engine |
+| `GatewayRepository.record` | Model/outcome/latency/retry-after | No return | Upserts health, failures, timestamps and cooldown |
+| `GatewayRepository.save_capacity` | Capacity record | No return | Upserts JSON observation with credential fingerprint |
+| `GatewayRepository.capacity` | Provider/account | Capacity or None; corrupt observation can fail validation | Read only |
+| `GatewayRepository.provider_enabled` | Provider name | Persisted control flag; absent row defaults enabled | Read only; no model enablement |
+| `GatewayRepository.set_provider_enabled` | Provider, flag, actor and reason | Rejects missing attribution | Atomic control upsert and append-only application audit insert |
 
-<!-- symbol: mg_ai/state.py::State.admit -->
-<!-- symbol: mg_ai/state.py::State.check_duplicate -->
-<!-- symbol: mg_ai/state.py::State.execution -->
-<!-- symbol: mg_ai/state.py::State.record -->
-<!-- symbol: mg_ai/state.py::State.save_capacity -->
-<!-- symbol: mg_ai/state.py::State.capacity -->
-<!-- symbol: mg_ai/state.py::State.provider_enabled -->
-<!-- symbol: mg_ai/state.py::State.set_provider_enabled -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.admit -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.check_duplicate -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.execution -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.record -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.save_capacity -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.capacity -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.provider_enabled -->
+<!-- symbol: mg_ai/database/gateway_repository.py::GatewayRepository.set_provider_enabled -->
 
-[capacity.py](../mg_ai/capacity.py) holds `Capacity`. Owner consequence: UNKNOWN does not
+[capacity.py](../mg_ai/capacity.py) is a compatibility re-export; `Capacity` lives in
+[common/capacity.py](../mg_ai/common/capacity.py). Owner consequence: UNKNOWN does not
 mean unlimited, and an observation in the wrong SQLite file cannot influence the Gateway.
 
 | Exact function | Reads/input | Result / failure | Writes/side effects |
@@ -121,11 +153,11 @@ mean unlimited, and an observation in the wrong SQLite file cannot influence the
 | `groq_capacity` | Response headers and verified-direct flag | Remaining request/token/reset observation | None; parser only, no Groq execution adapter |
 | `main` | Process environment, --state | Prints sanitized capacity excluding fingerprint | NETWORK via refresh; saves SQLite. Does not load .env itself |
 
-<!-- symbol: mg_ai/capacity.py::Capacity.blocks -->
-<!-- symbol: mg_ai/capacity.py::refresh_openrouter -->
-<!-- symbol: mg_ai/capacity.py::openrouter_capacity -->
-<!-- symbol: mg_ai/capacity.py::groq_capacity -->
-<!-- symbol: mg_ai/capacity.py::main -->
+<!-- symbol: mg_ai/common/capacity.py::Capacity.blocks -->
+<!-- symbol: mg_ai/common/capacity.py::refresh_openrouter -->
+<!-- symbol: mg_ai/common/capacity.py::openrouter_capacity -->
+<!-- symbol: mg_ai/common/capacity.py::groq_capacity -->
+<!-- symbol: mg_ai/common/capacity.py::main -->
 
 ## Discovery, evaluation and recommendations
 
@@ -196,15 +228,22 @@ and benchmark before dispatch. See [owner decisions](OWNER_APPROVAL_POINTS.md).
 
 ## Optional private DEEP boundary
 
-[deep.py](../mg_ai/deep.py) defines `DeepRequest`, `DeepResponse`, `DeepAdapter` and
-`create_deep_app`: authenticates a dedicated executor token, pins native HIGH Responses,
-sanitizes output and classifies ambiguity. [deep_state.py](../mg_ai/deep_state.py) reuses
-State with a durable singleton claim and hashed request identities; no prompt/answer store.
+[deep.py](../mg_ai/deep.py) is the DEEP composition root: it builds `DeepService`, registers
+the router from [modules/deep/controller.py](../mg_ai/modules/deep/controller.py), adds the
+body-boundary middleware and exception handlers, and defines `create_deep_app`. The DTOs
+`DeepRequest`, `DeepResponse` and `DeepAttachment` live in
+[modules/deep/dto/deep.py](../mg_ai/modules/deep/dto/deep.py); `DeepAdapter` (provider plumbing)
+and `DeepService` (claim/attachment/continuity orchestration) live in
+[modules/deep/service.py](../mg_ai/modules/deep/service.py). The service authenticates a
+dedicated executor token, pins native HIGH Responses, sanitizes output and classifies ambiguity.
+[database/deep_repository.py](../mg_ai/database/deep_repository.py) reuses GatewayRepository
+with a durable singleton claim and hashed request identities; no prompt/answer store
+([deep_state.py](../mg_ai/deep_state.py) is a compatibility alias).
 [deep_control.py](../mg_ai/deep_control.py) provides local audited enable/disable and session
 attestation. No external login or reconciliation is automatic. See [contract](DEEP_BACKEND.md).
-<!-- symbol: mg_ai/deep.py::DeepRequest -->
-<!-- symbol: mg_ai/deep.py::DeepResponse -->
-<!-- symbol: mg_ai/deep.py::DeepAdapter -->
+<!-- symbol: mg_ai/modules/deep/dto/deep.py::DeepRequest -->
+<!-- symbol: mg_ai/modules/deep/dto/deep.py::DeepResponse -->
+<!-- symbol: mg_ai/modules/deep/service.py::DeepAdapter -->
 <!-- symbol: mg_ai/deep.py::create_deep_app -->
-<!-- symbol: mg_ai/deep_state.py::DeepState -->
+<!-- symbol: mg_ai/database/deep_repository.py::DeepRepository -->
 <!-- symbol: mg_ai/deep_control.py::main -->

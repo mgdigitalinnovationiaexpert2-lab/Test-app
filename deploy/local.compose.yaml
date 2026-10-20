@@ -1,0 +1,16 @@
+services:
+  proxy:
+    image: mg-local/litellm:v1.99.1
+    pull_policy: never
+  omniroute:
+    image: mg-local/omniroute:3.8.50-web
+    pull_policy: never
+  chatgpt-web-codex-browser:
+    image: mg-local/omniroute:3.8.50-web
+    pull_policy: never
+  gateway:
+    image: maghsoud-ai-infrastructure-gateway:programmer-v1
+    pull_policy: never
+  deep:
+    image: maghsoud-ai-infrastructure-gateway:0.1.0
+    pull_policy: never

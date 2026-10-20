@@ -21,7 +21,9 @@ def inventory(root: Path) -> list[dict[str, object]]:
                 walk(child, path, parents)
 
     for folder in ("mg_ai", "scripts"):
-        for path in sorted((root / folder).glob("*.py")):
+        for path in sorted((root / folder).rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
             relative = path.relative_to(root).as_posix()
             rows.append({"file": relative, "symbol": "", "line": 1, "kind": "module"})
             walk(ast.parse(path.read_text(encoding="utf-8-sig")), relative, [])

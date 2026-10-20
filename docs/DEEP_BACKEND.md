@@ -186,8 +186,7 @@ verified again at execution, and removed after terminal processing. The Portal c
 `DELETE /internal/deep/executions/{execution_id}/attachments` for idempotent cleanup.
 
 An attachment execution uses `privacy_class: "INTERNAL"` and includes only the staged
-metadata in its JSON body. Supported types are UTF-8 text/JSON/XML/source formats, DOCX,
-PNG, JPEG, WebP, and PDF. DOCX text is extracted inside the private executor with bounded
-OOXML parsing. Each file is limited to 10 MiB; combined inline text is limited to
+metadata in its JSON body. Supported types are UTF-8 text/JSON/XML/source formats, PNG,
+JPEG, WebP, and PDF. Each file is limited to 10 MiB; combined inline text is limited to
 200,000 bytes. Unsupported or invalid content is rejected before provider dispatch with a
 specific `DEEP_ATTACHMENT_*` error. Files are never exposed through public URLs.

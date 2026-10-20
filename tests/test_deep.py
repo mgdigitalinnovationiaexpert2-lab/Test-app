@@ -178,39 +178,6 @@ def test_private_png_attachment_is_staged_verified_and_removed(deep, monkeypatch
     assert not (tmp_path / 'attachments' / body['execution_id']).exists()
 
 
-def test_private_docx_attachment_is_extracted_with_persian_filename(deep, monkeypatch, tmp_path):
-    monkeypatch.setenv('MG_DEEP_ATTACHMENT_ROOT', str(tmp_path / 'attachments'))
-    client, _, calls = deep()
-    body = request_body(privacy_class='INTERNAL')
-    document_xml = (b'<?xml version="1.0" encoding="UTF-8"?>'
-        b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        b'<w:body><w:p><w:r><w:t>private docx evidence</w:t></w:r></w:p></w:body></w:document>')
-    stream = __import__('io').BytesIO()
-    with __import__('zipfile').ZipFile(stream, 'w') as archive:
-        archive.writestr('word/document.xml', document_xml)
-    content = stream.getvalue()
-    digest = __import__('hashlib').sha256(content).hexdigest()
-    filename = 'گزارش.docx'
-    mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    body['attachments'] = [{'index': 0, 'filename': filename, 'mime_type': mime,
-                            'size_bytes': len(content), 'sha256': digest}]
-    staged = client.put(
-        f"/internal/deep/executions/{body['execution_id']}/attachments/0",
-        content=content,
-        headers={'content-type': mime, 'x-mg-filename': __import__('urllib').parse.quote(filename),
-                 'x-mg-size': str(len(content)), 'x-mg-sha256': digest},
-    )
-    assert staged.status_code == 200
-    response = client.post('/internal/deep/execute', json=body)
-    assert response.status_code == 200
-    sent = json.loads(calls[1].content)
-    part = sent['input'][-1]['content'][1]
-    assert part['type'] == 'input_text'
-    assert filename in part['text']
-    assert 'private docx evidence' in part['text']
-    assert not (tmp_path / 'attachments' / body['execution_id']).exists()
-
-
 def test_private_attachment_cleanup_endpoint_is_authenticated_and_idempotent(deep, monkeypatch, tmp_path):
     monkeypatch.setenv('MG_DEEP_ATTACHMENT_ROOT', str(tmp_path / 'attachments'))
     client, _, _ = deep()
